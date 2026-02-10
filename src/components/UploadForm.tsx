@@ -233,7 +233,7 @@ export default function UploadForm() {
   const totalMB = (state.totalBytes / (1024 * 1024)).toFixed(1);
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* File */}
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
