@@ -1,0 +1,54 @@
+import { auth } from "@/auth";
+import { getCsrfToken, uploadFirstChunk, uploadNextChunk } from "@/lib/wikimedia";
+import { NextResponse } from "next/server";
+
+export async function POST(request: Request) {
+  const session = await auth();
+  if (!session?.accessToken) {
+    return NextResponse.json({ error: "Не авторизовано" }, { status: 401 });
+  }
+
+  try {
+    const fd = await request.formData();
+    const chunk = fd.get("chunk") as Blob | null;
+    const filename = fd.get("filename") as string | null;
+    const fileSize = parseInt(fd.get("fileSize") as string, 10);
+    const offset = parseInt(fd.get("offset") as string, 10);
+    const filekey = fd.get("filekey") as string | null;
+
+    if (!chunk || !filename || isNaN(fileSize) || isNaN(offset)) {
+      return NextResponse.json({ error: "Відсутні обов'язкові поля" }, { status: 400 });
+    }
+
+    const csrfToken = await getCsrfToken(session.accessToken);
+
+    let result;
+    if (offset === 0 && !filekey) {
+      result = await uploadFirstChunk({
+        accessToken: session.accessToken,
+        csrfToken,
+        filename,
+        chunk,
+        fileSize,
+      });
+    } else {
+      if (!filekey) {
+        return NextResponse.json({ error: "filekey обов'язковий для наступних шматків" }, { status: 400 });
+      }
+      result = await uploadNextChunk({
+        accessToken: session.accessToken,
+        csrfToken,
+        filekey,
+        chunk,
+        offset,
+        fileSize,
+      });
+    }
+
+    return NextResponse.json({ filekey: result.filekey, offset: result.offset });
+  } catch (err) {
+    console.error("[chunk upload error]", err);
+    const message = err instanceof Error ? err.message : "Невідома помилка";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

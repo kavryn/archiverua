@@ -5,6 +5,10 @@ import ArchiveCombobox from "./ArchiveCombobox";
 import DateFields, { getDateError, type DateState } from "./DateFields";
 import type { Archive } from "@/lib/archives";
 
+const CHUNK_SIZE = 20 * 1024 * 1024;
+const LARGE_FILE_THRESHOLD = 20 * 1024 * 1024;
+const MAX_CHUNK_RETRIES = 3;
+
 interface FormState {
   file: File | null;
   archive: Archive | null;
@@ -19,6 +23,11 @@ interface FormState {
   status: "idle" | "uploading" | "success" | "error";
   errorMessage: string;
   resultUrl: string;
+  uploadProgress: number;
+  uploadedBytes: number;
+  totalBytes: number;
+  currentChunk: number;
+  totalChunks: number;
 }
 
 const initialState: FormState = {
@@ -35,6 +44,11 @@ const initialState: FormState = {
   status: "idle",
   errorMessage: "",
   resultUrl: "",
+  uploadProgress: 0,
+  uploadedBytes: 0,
+  totalBytes: 0,
+  currentChunk: 0,
+  totalChunks: 0,
 };
 
 export default function UploadForm() {
@@ -66,31 +80,136 @@ export default function UploadForm() {
     arbitraryOk &&
     (state.dateFrom.trim() !== "" || state.dateTo.trim() !== "");
 
+  async function handleDirectUpload(currentState: FormState) {
+    const fd = new FormData();
+    fd.append("file", currentState.file!);
+    fd.append("archiveAbbr", currentState.archive!.abbr);
+    fd.append("fond", currentState.fond);
+    fd.append("opis", currentState.opis);
+    fd.append("sprava", currentState.sprava);
+    fd.append("dateFrom", currentState.dateFrom);
+    fd.append("dateTo", currentState.dateTo);
+    fd.append("isArbitraryDate", String(currentState.isArbitraryDate));
+    fd.append("isOver75Years", String(currentState.isOver75Years));
+    fd.append("isRussianEmpire", String(currentState.isRussianEmpire));
+
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) {
+      update({ status: "error", errorMessage: data.error });
+    } else {
+      update({ status: "success", resultUrl: data.url });
+    }
+  }
+
+  async function uploadChunkWithRetry(
+    chunkFd: FormData,
+    retries: number
+  ): Promise<{ filekey: string; offset: number }> {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch("/api/upload/chunk", { method: "POST", body: chunkFd });
+        const data = await res.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        return { filekey: data.filekey, offset: data.offset };
+      } catch (err) {
+        if (attempt === retries) throw err;
+        await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt + 1) * 1000));
+      }
+    }
+    throw new Error("Unreachable");
+  }
+
+  async function handleCommit(
+    filekey: string,
+    currentState: FormState
+  ): Promise<string> {
+    const file = currentState.file!;
+    const ext = file.name.split(".").pop() ?? "jpg";
+
+    const fd = new FormData();
+    fd.append("commitOnly", "true");
+    fd.append("filekey", filekey);
+    fd.append("ext", ext);
+    fd.append("archiveAbbr", currentState.archive!.abbr);
+    fd.append("fond", currentState.fond);
+    fd.append("opis", currentState.opis);
+    fd.append("sprava", currentState.sprava);
+    fd.append("dateFrom", currentState.dateFrom);
+    fd.append("dateTo", currentState.dateTo);
+    fd.append("isArbitraryDate", String(currentState.isArbitraryDate));
+    fd.append("isOver75Years", String(currentState.isOver75Years));
+    fd.append("isRussianEmpire", String(currentState.isRussianEmpire));
+
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    return data.url as string;
+  }
+
+  async function handleChunkedUpload(currentState: FormState) {
+    const file = currentState.file!;
+    const fileSize = file.size;
+    const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+
+    update({
+      totalBytes: fileSize,
+      totalChunks,
+      uploadedBytes: 0,
+      uploadProgress: 0,
+      currentChunk: 0,
+    });
+
+    let filekey = "";
+    let confirmedOffset = 0;
+
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkStart = i * CHUNK_SIZE;
+      const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, fileSize);
+      const chunkBlob = file.slice(chunkStart, chunkEnd);
+
+      const chunkFd = new FormData();
+      chunkFd.append("chunk", chunkBlob, "chunk");
+      chunkFd.append("filename", file.name);
+      chunkFd.append("fileSize", String(fileSize));
+      chunkFd.append("offset", String(chunkStart));
+      if (filekey) {
+        chunkFd.append("filekey", filekey);
+      }
+
+      const result = await uploadChunkWithRetry(chunkFd, MAX_CHUNK_RETRIES);
+      filekey = result.filekey;
+      confirmedOffset = result.offset;
+
+      const progress = Math.round((confirmedOffset / fileSize) * 100);
+      update({
+        currentChunk: i + 1,
+        uploadedBytes: confirmedOffset,
+        uploadProgress: progress,
+      });
+    }
+
+    const url = await handleCommit(filekey, currentState);
+    update({ status: "success", resultUrl: url });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!submitEnabled || state.status === "uploading") return;
 
     update({ status: "uploading", errorMessage: "", resultUrl: "" });
 
-    const fd = new FormData();
-    fd.append("file", state.file!);
-    fd.append("archiveAbbr", state.archive!.abbr);
-    fd.append("fond", state.fond);
-    fd.append("opis", state.opis);
-    fd.append("sprava", state.sprava);
-    fd.append("dateFrom", state.dateFrom);
-    fd.append("dateTo", state.dateTo);
-    fd.append("isArbitraryDate", String(state.isArbitraryDate));
-    fd.append("isOver75Years", String(state.isOver75Years));
-    fd.append("isRussianEmpire", String(state.isRussianEmpire));
+    const currentState = { ...state, status: "uploading" as const };
 
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (data.error) {
-        update({ status: "error", errorMessage: data.error });
+      if (state.file!.size > LARGE_FILE_THRESHOLD) {
+        await handleChunkedUpload(currentState);
       } else {
-        update({ status: "success", resultUrl: data.url });
+        await handleDirectUpload(currentState);
       }
     } catch {
       update({ status: "error", errorMessage: "Помилка мережі" });
@@ -99,6 +218,9 @@ export default function UploadForm() {
 
   const inputClass =
     "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
+
+  const uploadedMB = (state.uploadedBytes / (1024 * 1024)).toFixed(1);
+  const totalMB = (state.totalBytes / (1024 * 1024)).toFixed(1);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -192,6 +314,23 @@ export default function UploadForm() {
       >
         {state.status === "uploading" ? "Завантаження…" : "Завантажити на Commons"}
       </button>
+
+      {state.status === "uploading" && state.totalChunks > 0 && (
+        <div className="flex flex-col gap-1">
+          <div className="text-sm text-zinc-600 dark:text-zinc-400">
+            Чанк {state.currentChunk} з {state.totalChunks} — {state.uploadProgress}%
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+            <div
+              style={{ width: `${state.uploadProgress}%` }}
+              className="h-2 bg-blue-600 rounded-full transition-all duration-300"
+            />
+          </div>
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            {uploadedMB} МБ з {totalMB} МБ
+          </div>
+        </div>
+      )}
 
       {state.status === "success" && (
         <p className="text-sm text-green-700 dark:text-green-400">

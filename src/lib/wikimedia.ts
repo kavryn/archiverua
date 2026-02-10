@@ -51,7 +51,138 @@ export async function uploadFile(params: UploadParams): Promise<string> {
   const data = await res.json();
 
   if (data.error) {
+    console.error("[uploadFile] Wikimedia error:", JSON.stringify(data.error));
     throw new Error(data.error.info ?? "Upload error");
+  }
+
+  const fileUrl: string =
+    data.upload?.imageinfo?.url ??
+    `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(params.filename)}`;
+
+  return fileUrl;
+}
+
+export interface ChunkUploadFirstParams {
+  accessToken: string;
+  csrfToken: string;
+  filename: string;
+  chunk: Blob;
+  fileSize: number;
+}
+
+export interface ChunkUploadNextParams {
+  accessToken: string;
+  csrfToken: string;
+  filekey: string;
+  chunk: Blob;
+  offset: number;
+  fileSize: number;
+}
+
+export interface ChunkUploadResult {
+  filekey: string;
+  offset: number;
+}
+
+export interface CommitUploadParams {
+  accessToken: string;
+  csrfToken: string;
+  filekey: string;
+  filename: string;
+  description: string;
+  comment: string;
+}
+
+export async function uploadFirstChunk(params: ChunkUploadFirstParams): Promise<ChunkUploadResult> {
+  const fd = new FormData();
+  fd.append("action", "upload");
+  fd.append("format", "json");
+  fd.append("filename", params.filename);
+  fd.append("stash", "1");
+  fd.append("offset", "0");
+  fd.append("filesize", String(params.fileSize));
+  fd.append("token", params.csrfToken);
+  fd.append("ignorewarnings", "1");
+  fd.append("file", params.chunk, params.filename);
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${params.accessToken}` },
+    body: fd,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Chunk upload failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(data.error.info ?? "Chunk upload error");
+  }
+
+  return {
+    filekey: data.upload.filekey as string,
+    offset: data.upload.offset as number,
+  };
+}
+
+export async function uploadNextChunk(params: ChunkUploadNextParams): Promise<ChunkUploadResult> {
+  const fd = new FormData();
+  fd.append("action", "upload");
+  fd.append("format", "json");
+  fd.append("stash", "1");
+  fd.append("filekey", params.filekey);
+  fd.append("offset", String(params.offset));
+  fd.append("filesize", String(params.fileSize));
+  fd.append("token", params.csrfToken);
+  fd.append("ignorewarnings", "1");
+  fd.append("chunk", params.chunk, "chunk");
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${params.accessToken}` },
+    body: fd,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Chunk upload failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(data.error.info ?? "Chunk upload error");
+  }
+
+  return {
+    filekey: data.upload.filekey as string,
+    offset: data.upload.offset as number,
+  };
+}
+
+export async function commitChunkedUpload(params: CommitUploadParams): Promise<string> {
+  const fd = new FormData();
+  fd.append("action", "upload");
+  fd.append("format", "json");
+  fd.append("filename", params.filename);
+  fd.append("filekey", params.filekey);
+  fd.append("text", params.description);
+  fd.append("comment", params.comment);
+  fd.append("token", params.csrfToken);
+  fd.append("ignorewarnings", "1");
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${params.accessToken}` },
+    body: fd,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Commit upload failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(data.error.info ?? "Commit upload error");
   }
 
   const fileUrl: string =
