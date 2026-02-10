@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: ["archiverua.toolforge.org"],
+      bodySizeLimit: "50mb",
     },
   },
 };

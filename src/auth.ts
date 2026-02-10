@@ -20,6 +20,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Wikimedia({
       clientId: process.env.AUTH_WIKIMEDIA_ID!,
       clientSecret: process.env.AUTH_WIKIMEDIA_SECRET!,
+      authorization: "https://meta.wikimedia.org/w/rest.php/oauth2/authorize?scope=basic+editpage+uploadfile",
     }),
   ],
   session: { strategy: "jwt" },
