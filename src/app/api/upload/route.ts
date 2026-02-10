@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { ARCHIVES } from "@/lib/archives";
-import { getCsrfToken, uploadFile, commitChunkedUpload, buildFilename, buildDescription } from "@/lib/wikimedia";
+import { getCsrfToken, uploadFile, commitChunkedUpload, buildFilename, buildDescription, DuplicateFileError } from "@/lib/wikimedia";
 import { NextResponse } from "next/server";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -80,6 +80,9 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ success: true, url });
     } catch (err) {
+      if (err instanceof DuplicateFileError) {
+        return NextResponse.json({ error: err.message, duplicateUrl: err.duplicateUrl }, { status: 409 });
+      }
       const message = err instanceof Error ? err.message : "Невідома помилка";
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -140,12 +143,6 @@ export async function POST(request: Request) {
   });
 
   try {
-    const whoami = await fetch("https://commons.wikimedia.org/w/api.php?action=query&meta=userinfo&uiprop=groups%7Crights&format=json", {
-      headers: { Authorization: `Bearer ${session.accessToken}` },
-    });
-    const whoamiData = await whoami.json();
-    console.log("[upload debug] userinfo:", JSON.stringify(whoamiData.query?.userinfo));
-
     const csrfToken = await getCsrfToken(session.accessToken);
     const url = await uploadFile({
       accessToken: session.accessToken,
@@ -157,6 +154,9 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ success: true, url });
   } catch (err) {
+    if (err instanceof DuplicateFileError) {
+      return NextResponse.json({ error: err.message, duplicateUrl: err.duplicateUrl }, { status: 409 });
+    }
     const message = err instanceof Error ? err.message : "Невідома помилка";
     return NextResponse.json({ error: message }, { status: 500 });
   }

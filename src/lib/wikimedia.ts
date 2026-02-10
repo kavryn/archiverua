@@ -2,6 +2,14 @@ import "server-only";
 
 const API_URL = "https://commons.wikimedia.org/w/api.php";
 
+export class DuplicateFileError extends Error {
+  duplicateUrl: string;
+  constructor(filename: string) {
+    super("Файл з таким вмістом вже існує у Вікісховищі");
+    this.duplicateUrl = `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(filename)}`;
+  }
+}
+
 export async function getCsrfToken(accessToken: string): Promise<string> {
   const url = `${API_URL}?action=query&meta=tokens&type=csrf&format=json`;
   const res = await fetch(url, {
@@ -33,7 +41,6 @@ export async function uploadFile(params: UploadParams): Promise<string> {
   fd.append("text", params.description);
   fd.append("comment", params.comment);
   fd.append("token", params.csrfToken);
-  fd.append("ignorewarnings", "1");
   fd.append("file", params.file, params.filename);
 
   const res = await fetch(API_URL, {
@@ -50,8 +57,11 @@ export async function uploadFile(params: UploadParams): Promise<string> {
 
   const data = await res.json();
 
+  if (data.upload?.warnings?.duplicate) {
+    throw new DuplicateFileError(data.upload.warnings.duplicate[0]);
+  }
+
   if (data.error) {
-    console.error("[uploadFile] Wikimedia error:", JSON.stringify(data.error));
     throw new Error(data.error.info ?? "Upload error");
   }
 
@@ -168,7 +178,6 @@ export async function commitChunkedUpload(params: CommitUploadParams): Promise<s
   fd.append("text", params.description);
   fd.append("comment", params.comment);
   fd.append("token", params.csrfToken);
-  fd.append("ignorewarnings", "1");
 
   const res = await fetch(API_URL, {
     method: "POST",
@@ -181,6 +190,11 @@ export async function commitChunkedUpload(params: CommitUploadParams): Promise<s
   }
 
   const data = await res.json();
+
+  if (data.upload?.warnings?.duplicate) {
+    throw new DuplicateFileError(data.upload.warnings.duplicate[0]);
+  }
+
   if (data.error) {
     throw new Error(data.error.info ?? "Commit upload error");
   }

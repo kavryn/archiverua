@@ -20,9 +20,10 @@ interface FormState {
   isArbitraryDate: boolean;
   isOver75Years: boolean;
   isRussianEmpire: boolean;
-  status: "idle" | "uploading" | "success" | "error";
+  status: "idle" | "uploading" | "success" | "error" | "duplicate";
   errorMessage: string;
   resultUrl: string;
+  duplicateUrl: string;
   uploadProgress: number;
   uploadedBytes: number;
   totalBytes: number;
@@ -44,6 +45,7 @@ const initialState: FormState = {
   status: "idle",
   errorMessage: "",
   resultUrl: "",
+  duplicateUrl: "",
   uploadProgress: 0,
   uploadedBytes: 0,
   totalBytes: 0,
@@ -95,7 +97,9 @@ export default function UploadForm() {
 
     const res = await fetch("/api/upload", { method: "POST", body: fd });
     const data = await res.json();
-    if (data.error) {
+    if (data.duplicateUrl) {
+      update({ status: "duplicate", duplicateUrl: data.duplicateUrl });
+    } else if (data.error) {
       update({ status: "error", errorMessage: data.error });
     } else {
       update({ status: "success", resultUrl: data.url });
@@ -145,6 +149,10 @@ export default function UploadForm() {
 
     const res = await fetch("/api/upload", { method: "POST", body: fd });
     const data = await res.json();
+    if (data.duplicateUrl) {
+      update({ status: "duplicate", duplicateUrl: data.duplicateUrl });
+      return "";
+    }
     if (data.error) {
       throw new Error(data.error);
     }
@@ -194,14 +202,16 @@ export default function UploadForm() {
     }
 
     const url = await handleCommit(filekey, currentState);
-    update({ status: "success", resultUrl: url });
+    if (url) {
+      update({ status: "success", resultUrl: url });
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!submitEnabled || state.status === "uploading") return;
 
-    update({ status: "uploading", errorMessage: "", resultUrl: "" });
+    update({ status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "" });
 
     const currentState = { ...state, status: "uploading" as const };
 
@@ -309,7 +319,7 @@ export default function UploadForm() {
       {/* Submit */}
       <button
         type="submit"
-        disabled={!submitEnabled || state.status === "uploading"}
+        disabled={!submitEnabled || state.status === "uploading" || state.status === "success"}
         className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
       >
         {state.status === "uploading" ? "Завантаження…" : "Завантажити на Commons"}
@@ -337,6 +347,15 @@ export default function UploadForm() {
           Успішно!{" "}
           <a href={state.resultUrl} target="_blank" rel="noopener noreferrer" className="underline">
             Переглянути файл
+          </a>
+        </p>
+      )}
+
+      {state.status === "duplicate" && (
+        <p className="text-sm text-yellow-700 dark:text-yellow-400">
+          Файл з таким вмістом вже існує у Вікісховищі.{" "}
+          <a href={state.duplicateUrl} target="_blank" rel="noopener noreferrer" className="underline">
+            Переглянути існуючий файл
           </a>
         </p>
       )}
