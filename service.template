@@ -1,6 +1,5 @@
 backend: kubernetes
 type: node20
-cpu: 0.5
+cpu: 500m
 mem: 1Gi
-canonical: true
 health-check-path: /api/healthz
