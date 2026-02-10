@@ -29,8 +29,42 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploy on Toolforge
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This app is deployed on [Wikimedia Toolforge](https://wikitech.wikimedia.org/wiki/Portal:Toolforge) as tool `archiverua` at `https://archiverua.toolforge.org`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Initial deploy
+
+```bash
+# 1. Connect to Toolforge
+ssh YOUR_WIKIMEDIA_USER@login.toolforge.org
+
+# 2. Switch to tool account
+become archiverua
+
+# 3. Prepare directory and clone repo
+mkdir -p ~/www/js
+cd ~/www/js
+git clone https://github.com/YOUR_USERNAME/archiverua.git .
+
+# 4. Copy service.template to tool home directory
+cp ~/www/js/service.template ~/service.template
+
+# 5. Start webservice (build takes ~3-5 min)
+toolforge webservice node20 start
+
+# 6. Check logs
+toolforge webservice node20 logs
+```
+
+### Updating
+
+```bash
+cd ~/www/js && git pull
+toolforge webservice node20 restart
+```
+
+### Verification
+
+- App: `https://archiverua.toolforge.org`
+- Healthcheck: `https://archiverua.toolforge.org/api/healthz` → `{"status":"ok"}`
