@@ -64,6 +64,33 @@ cd ~/www/js && git pull
 toolforge webservice node20 restart
 ```
 
+### Updating environment variables / Secrets
+
+The app requires the following environment variables, which must be set as Toolforge secrets:
+
+| Variable | Purpose |
+|---|---|
+| `AUTH_SECRET` | Random secret used to sign JWT session tokens (generate with `npx auth secret`) |
+| `AUTH_WIKIMEDIA_ID` | OAuth 2.0 Client ID from [Special:OAuthConsumerRegistration](https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration) |
+| `AUTH_WIKIMEDIA_SECRET` | OAuth 2.0 Client Secret for the registered consumer |
+| `AUTH_URL` | Public base URL of the app (must match the callback URL registered with Wikimedia) |
+
+**Create secrets on Toolforge:**
+```bash
+toolforge envvars create AUTH_SECRET "..."
+toolforge envvars create AUTH_WIKIMEDIA_ID "..."
+toolforge envvars create AUTH_WIKIMEDIA_SECRET "..."
+toolforge envvars create AUTH_URL "https://archiverua.toolforge.org"
+```
+
+**List / delete secrets:**
+```bash
+toolforge envvars list
+toolforge envvars delete AUTH_SECRET
+```
+
+> **Note:** For local development, copy these values to `.env.local`. This file is gitignored and must **never** be committed.
+
 ### Verification
 
 - App: `https://archiverua.toolforge.org`
