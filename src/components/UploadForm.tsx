@@ -259,49 +259,49 @@ export default function UploadForm() {
         />
       </div>
 
-      {/* Fond */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Фонд
-        </label>
-        <input
-          type="text"
-          value={state.fond}
-          onChange={(e) => update({ fond: e.target.value, opis: "", sprava: "", dateFrom: "", dateTo: "" })}
-          disabled={!fondEnabled}
-          placeholder="напр. 201"
-          className={inputClass}
-        />
-      </div>
+      {/* Fond / Opis / Sprava */}
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Фонд
+          </label>
+          <input
+            type="text"
+            value={state.fond}
+            onChange={(e) => update({ fond: e.target.value, opis: "", sprava: "", dateFrom: "", dateTo: "" })}
+            disabled={!fondEnabled}
+            placeholder="напр. 201"
+            className={inputClass}
+          />
+        </div>
 
-      {/* Opis */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Опис
-        </label>
-        <input
-          type="text"
-          value={state.opis}
-          onChange={(e) => update({ opis: e.target.value, sprava: "", dateFrom: "", dateTo: "" })}
-          disabled={!opisEnabled}
-          placeholder="напр. 1"
-          className={inputClass}
-        />
-      </div>
+        <div className="flex-1">
+          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Опис
+          </label>
+          <input
+            type="text"
+            value={state.opis}
+            onChange={(e) => update({ opis: e.target.value, sprava: "", dateFrom: "", dateTo: "" })}
+            disabled={!opisEnabled}
+            placeholder="напр. 1"
+            className={inputClass}
+          />
+        </div>
 
-      {/* Sprava */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Справа
-        </label>
-        <input
-          type="text"
-          value={state.sprava}
-          onChange={(e) => update({ sprava: e.target.value, dateFrom: "", dateTo: "" })}
-          disabled={!spravaEnabled}
-          placeholder="напр. 3350"
-          className={inputClass}
-        />
+        <div className="flex-1">
+          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Справа
+          </label>
+          <input
+            type="text"
+            value={state.sprava}
+            onChange={(e) => update({ sprava: e.target.value, dateFrom: "", dateTo: "" })}
+            disabled={!spravaEnabled}
+            placeholder="напр. 3350"
+            className={inputClass}
+          />
+        </div>
       </div>
 
       {/* Dates */}
