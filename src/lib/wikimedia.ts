@@ -3,6 +3,9 @@ import "server-only";
 const API_URL = process.env.NEXT_PUBLIC_WIKI_API_URL ?? "https://commons.wikimedia.org/w/api.php";
 const WIKI_BASE = API_URL.replace(/\/w\/api\.php$/, "");
 
+const WIKISOURCE_API_URL = process.env.NEXT_PUBLIC_WIKI_API_URL ?? "https://uk.wikisource.org/w/api.php";
+const WIKISOURCE_BASE = WIKISOURCE_API_URL.replace(/\/w\/api\.php$/, "");
+
 export class DuplicateFileError extends Error {
   duplicateUrl: string;
   constructor(filename: string) {
@@ -227,6 +230,86 @@ export interface DescriptionParams {
   dateTo: string;
   isArbitraryDate: boolean;
   isRussianEmpire: boolean;
+}
+
+export async function getWikisourceCsrfToken(accessToken: string): Promise<string> {
+  const url = `${WIKISOURCE_API_URL}?action=query&meta=tokens&type=csrf&format=json`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to get Wikisource CSRF token: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.query.tokens.csrftoken as string;
+}
+
+export function buildWikisourceDateStr(
+  dateFrom: string,
+  dateTo: string,
+  isArbitraryDate: boolean
+): string {
+  if (isArbitraryDate || !dateTo || dateFrom === dateTo) {
+    return dateFrom;
+  }
+  return `${dateFrom}-${dateTo}`;
+}
+
+export function buildWikisourcePageContent(
+  spravaName: string,
+  dateStr: string,
+  filename: string
+): string {
+  return `{{Архіви/справа
+ | назва = ${spravaName}
+ | рік = ${dateStr}
+ | link_commons = File:${filename}
+ | примітки =
+}}`;
+}
+
+export interface CreateWikisourcePageParams {
+  accessToken: string;
+  csrfToken: string;
+  title: string;
+  content: string;
+  summary: string;
+}
+
+export async function createWikisourcePage(params: CreateWikisourcePageParams): Promise<string | null> {
+  const fd = new FormData();
+  fd.append("action", "edit");
+  fd.append("format", "json");
+  fd.append("title", params.title);
+  fd.append("createonly", "1");
+  fd.append("text", params.content);
+  fd.append("summary", params.summary);
+  fd.append("token", params.csrfToken);
+
+  const res = await fetch(WIKISOURCE_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.accessToken}`,
+    },
+    body: fd,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Wikisource edit failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  if (data.error) {
+    if (data.error.code === "articleexists") {
+      return null;
+    }
+    throw new Error(data.error.info ?? "Wikisource edit error");
+  }
+
+  return `${WIKISOURCE_BASE}/wiki/${encodeURIComponent(params.title)}`;
 }
 
 export function buildDescription(params: DescriptionParams): string {

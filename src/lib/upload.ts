@@ -33,6 +33,7 @@ async function commitUpload(filekey: string, entry: FileEntry): Promise<string> 
   fd.append("isArbitraryDate", String(entry.isArbitraryDate));
   fd.append("isOver75Years", String(entry.isOver75Years));
   fd.append("isRussianEmpire", String(entry.isRussianEmpire));
+  fd.append("spravaName", entry.spravaName.value || entry.spravaName.fetched);
   const res = await fetch("/api/upload", { method: "POST", body: fd });
   const data = await res.json();
   if (data.duplicateUrl) return `__duplicate__${data.duplicateUrl}`;
@@ -52,6 +53,7 @@ function uploadSmallFile(entry: FileEntry): Promise<{ url?: string; duplicateUrl
   fd.append("isArbitraryDate", String(entry.isArbitraryDate));
   fd.append("isOver75Years", String(entry.isOver75Years));
   fd.append("isRussianEmpire", String(entry.isRussianEmpire));
+  fd.append("spravaName", entry.spravaName.value || entry.spravaName.fetched);
   return fetch("/api/upload", { method: "POST", body: fd }).then((res) => res.json());
 }
 
