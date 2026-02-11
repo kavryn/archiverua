@@ -31,6 +31,29 @@ interface FormState {
   totalChunks: number;
 }
 
+interface NameFieldState {
+  value: string;           // Editable value when page doesn't exist
+  fetched: string;         // Fetched from Wikisource
+  exists: boolean;         // Whether Wikisource page exists
+  loading: boolean;
+  lastFetchedTitle: string; // Title used in the last completed fetch
+}
+
+const emptyNameState: NameFieldState = {
+  value: "",
+  fetched: "",
+  exists: false,
+  loading: false,
+  lastFetchedTitle: "",
+};
+
+async function fetchWikisourceName(
+  pageTitle: string
+): Promise<{ name: string | null; exists: boolean }> {
+  const res = await fetch(`/api/wikisource-name?title=${encodeURIComponent(pageTitle)}`);
+  return res.json();
+}
+
 const initialState: FormState = {
   file: null,
   archive: null,
@@ -55,9 +78,51 @@ const initialState: FormState = {
 
 export default function UploadForm() {
   const [state, setState] = useState<FormState>(initialState);
+  const [fondName, setFondName] = useState<NameFieldState>(emptyNameState);
+  const [opisName, setOpisName] = useState<NameFieldState>(emptyNameState);
+  const [spravaName, setSpravaName] = useState<NameFieldState>(emptyNameState);
 
   function update(patch: Partial<FormState>) {
     setState((prev) => ({ ...prev, ...patch }));
+  }
+
+  async function handleFondBlur(value: string) {
+    if (!state.archive || !value.trim()) return;
+    const title = `Архів:${state.archive.abbr}/${value.trim()}`;
+    if (fondName.lastFetchedTitle === title) return;
+    setFondName((p) => ({ ...p, loading: true }));
+    try {
+      const result = await fetchWikisourceName(title);
+      setFondName({ value: "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title });
+    } catch {
+      setFondName((p) => ({ ...p, loading: false }));
+    }
+  }
+
+  async function handleOpisBlur(value: string) {
+    if (!state.archive || !state.fond.trim() || !value.trim()) return;
+    const title = `Архів:${state.archive.abbr}/${state.fond.trim()}/${value.trim()}`;
+    if (opisName.lastFetchedTitle === title) return;
+    setOpisName((p) => ({ ...p, loading: true }));
+    try {
+      const result = await fetchWikisourceName(title);
+      setOpisName({ value: "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title });
+    } catch {
+      setOpisName((p) => ({ ...p, loading: false }));
+    }
+  }
+
+  async function handleSpravaBlur(value: string) {
+    if (!state.archive || !state.fond.trim() || !state.opis.trim() || !value.trim()) return;
+    const title = `Архів:${state.archive.abbr}/${state.fond.trim()}/${state.opis.trim()}/${value.trim()}`;
+    if (spravaName.lastFetchedTitle === title) return;
+    setSpravaName((p) => ({ ...p, loading: true }));
+    try {
+      const result = await fetchWikisourceName(title);
+      setSpravaName({ value: result.name ?? "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title });
+    } catch {
+      setSpravaName((p) => ({ ...p, loading: false }));
+    }
   }
 
   const archiveEnabled = state.file !== null;
@@ -232,6 +297,33 @@ export default function UploadForm() {
   const uploadedMB = (state.uploadedBytes / (1024 * 1024)).toFixed(1);
   const totalMB = (state.totalBytes / (1024 * 1024)).toFixed(1);
 
+  function renderNameField(
+    nameState: NameFieldState,
+    setNameState: React.Dispatch<React.SetStateAction<NameFieldState>>,
+    label: string,
+    show: boolean,
+    alwaysWritable = false
+  ) {
+    if (!show) return null;
+    const isDisabled = alwaysWritable ? nameState.loading : nameState.loading || nameState.exists;
+    const value = nameState.loading ? "" : alwaysWritable ? nameState.value : nameState.exists ? nameState.fetched : nameState.value;
+    return (
+      <div>
+        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          {label}
+        </label>
+        <input
+          type="text"
+          disabled={isDisabled}
+          value={value}
+          onChange={isDisabled ? undefined : (e) => setNameState((p) => ({ ...p, value: e.target.value }))}
+          placeholder={nameState.loading ? "Завантаження…" : `Введіть ${label.toLowerCase()}`}
+          className={inputClass}
+        />
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* File */}
@@ -254,7 +346,12 @@ export default function UploadForm() {
         </label>
         <ArchiveCombobox
           value={state.archive}
-          onChange={(a) => update({ archive: a, fond: "", opis: "", sprava: "", dateFrom: "", dateTo: "" })}
+          onChange={(a) => {
+            update({ archive: a, fond: "", opis: "", sprava: "", dateFrom: "", dateTo: "" });
+            setFondName(emptyNameState);
+            setOpisName(emptyNameState);
+            setSpravaName(emptyNameState);
+          }}
           disabled={!archiveEnabled}
         />
       </div>
@@ -268,7 +365,13 @@ export default function UploadForm() {
           <input
             type="text"
             value={state.fond}
-            onChange={(e) => update({ fond: e.target.value, opis: "", sprava: "", dateFrom: "", dateTo: "" })}
+            onChange={(e) => {
+              update({ fond: e.target.value, opis: "", sprava: "", dateFrom: "", dateTo: "" });
+              setFondName(emptyNameState);
+              setOpisName(emptyNameState);
+              setSpravaName(emptyNameState);
+            }}
+            onBlur={(e) => handleFondBlur(e.target.value)}
             disabled={!fondEnabled}
             placeholder="напр. 201"
             className={inputClass}
@@ -282,7 +385,12 @@ export default function UploadForm() {
           <input
             type="text"
             value={state.opis}
-            onChange={(e) => update({ opis: e.target.value, sprava: "", dateFrom: "", dateTo: "" })}
+            onChange={(e) => {
+              update({ opis: e.target.value, sprava: "", dateFrom: "", dateTo: "" });
+              setOpisName(emptyNameState);
+              setSpravaName(emptyNameState);
+            }}
+            onBlur={(e) => handleOpisBlur(e.target.value)}
             disabled={!opisEnabled}
             placeholder="напр. 1"
             className={inputClass}
@@ -296,12 +404,23 @@ export default function UploadForm() {
           <input
             type="text"
             value={state.sprava}
-            onChange={(e) => update({ sprava: e.target.value, dateFrom: "", dateTo: "" })}
+            onChange={(e) => {
+              update({ sprava: e.target.value, dateFrom: "", dateTo: "" });
+              setSpravaName(emptyNameState);
+            }}
+            onBlur={(e) => handleSpravaBlur(e.target.value)}
             disabled={!spravaEnabled}
             placeholder="напр. 3350"
             className={inputClass}
           />
         </div>
+      </div>
+
+      {/* Names — full-width rows below fond/opis/sprava */}
+      <div className="flex flex-col gap-2">
+        {(fondName.loading || fondName.lastFetchedTitle !== "") && renderNameField(fondName, setFondName, "Назва фонду", true)}
+        {(opisName.loading || opisName.lastFetchedTitle !== "") && renderNameField(opisName, setOpisName, "Назва опису", true)}
+        {renderNameField(spravaName, setSpravaName, "Назва справи", true, true)}
       </div>
 
       {/* Dates */}
