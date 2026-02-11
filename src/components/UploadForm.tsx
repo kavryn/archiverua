@@ -3,14 +3,31 @@
 import { useState } from "react";
 import ArchiveCombobox from "./ArchiveCombobox";
 import DateFields, { getDateError, type DateState } from "./DateFields";
+import FileDropZone from "./FileDropZone";
 import type { Archive } from "@/lib/archives";
 
 const CHUNK_SIZE = 20 * 1024 * 1024;
 const LARGE_FILE_THRESHOLD = 20 * 1024 * 1024;
 const MAX_CHUNK_RETRIES = 3;
 
-interface FormState {
-  file: File | null;
+interface NameFieldState {
+  value: string;
+  fetched: string;
+  exists: boolean;
+  loading: boolean;
+  lastFetchedTitle: string;
+}
+
+const emptyNameState: NameFieldState = {
+  value: "",
+  fetched: "",
+  exists: false,
+  loading: false,
+  lastFetchedTitle: "",
+};
+
+interface FileEntry {
+  file: File;
   archive: Archive | null;
   fond: string;
   opis: string;
@@ -20,6 +37,9 @@ interface FormState {
   isArbitraryDate: boolean;
   isOver75Years: boolean;
   isRussianEmpire: boolean;
+  fondName: NameFieldState;
+  opisName: NameFieldState;
+  spravaName: NameFieldState;
   status: "idle" | "uploading" | "success" | "error" | "duplicate";
   errorMessage: string;
   resultUrl: string;
@@ -32,21 +52,33 @@ interface FormState {
   submitted: boolean;
 }
 
-interface NameFieldState {
-  value: string;           // Editable value when page doesn't exist
-  fetched: string;         // Fetched from Wikisource
-  exists: boolean;         // Whether Wikisource page exists
-  loading: boolean;
-  lastFetchedTitle: string; // Title used in the last completed fetch
+function makeEntry(file: File): FileEntry {
+  return {
+    file,
+    archive: null,
+    fond: "",
+    opis: "",
+    sprava: "",
+    dateFrom: "",
+    dateTo: "",
+    isArbitraryDate: false,
+    isOver75Years: false,
+    isRussianEmpire: false,
+    fondName: emptyNameState,
+    opisName: emptyNameState,
+    spravaName: emptyNameState,
+    status: "idle",
+    errorMessage: "",
+    resultUrl: "",
+    duplicateUrl: "",
+    uploadProgress: 0,
+    uploadedBytes: 0,
+    totalBytes: 0,
+    currentChunk: 0,
+    totalChunks: 0,
+    submitted: false,
+  };
 }
-
-const emptyNameState: NameFieldState = {
-  value: "",
-  fetched: "",
-  exists: false,
-  loading: false,
-  lastFetchedTitle: "",
-};
 
 async function fetchWikisourceName(
   pageTitle: string
@@ -55,28 +87,44 @@ async function fetchWikisourceName(
   return res.json();
 }
 
-const initialState: FormState = {
-  file: null,
-  archive: null,
-  fond: "",
-  opis: "",
-  sprava: "",
-  dateFrom: "",
-  dateTo: "",
-  isArbitraryDate: false,
-  isOver75Years: false,
-  isRussianEmpire: false,
-  status: "idle",
-  errorMessage: "",
-  resultUrl: "",
-  duplicateUrl: "",
-  uploadProgress: 0,
-  uploadedBytes: 0,
-  totalBytes: 0,
-  currentChunk: 0,
-  totalChunks: 0,
-  submitted: false,
-};
+function isEntryValid(entry: FileEntry): boolean {
+  const dateState: DateState = {
+    dateFrom: entry.dateFrom,
+    dateTo: entry.dateTo,
+    isArbitraryDate: entry.isArbitraryDate,
+    isOver75Years: entry.isOver75Years,
+    isRussianEmpire: entry.isRussianEmpire,
+  };
+  const dateError = getDateError(dateState);
+  const dateEnabled = entry.sprava.trim() !== "";
+  const datesValid =
+    dateEnabled &&
+    !dateError &&
+    (!entry.isArbitraryDate || entry.isOver75Years) &&
+    (entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "");
+
+  const fondNameShown = entry.fondName.loading || entry.fondName.lastFetchedTitle !== "";
+  const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;
+  const fondNameEmpty = fondNameWritable && entry.fondName.value.trim() === "";
+
+  const opisNameShown = entry.opisName.loading || entry.opisName.lastFetchedTitle !== "";
+  const opisNameWritable = opisNameShown && !entry.opisName.loading && !entry.opisName.exists;
+  const opisNameEmpty = opisNameWritable && entry.opisName.value.trim() === "";
+
+  const spravaNameWritable = dateEnabled && !entry.spravaName.loading;
+  const spravaNameEmpty = spravaNameWritable && entry.spravaName.value.trim() === "";
+
+  return (
+    entry.archive !== null &&
+    entry.fond.trim() !== "" &&
+    entry.opis.trim() !== "" &&
+    entry.sprava.trim() !== "" &&
+    datesValid &&
+    !fondNameEmpty &&
+    !opisNameEmpty &&
+    !spravaNameEmpty
+  );
+}
 
 function FieldError({ show, message = "Поле обов'язкове" }: { show: boolean; message?: string }) {
   if (!show) return null;
@@ -90,115 +138,98 @@ function FieldError({ show, message = "Поле обов'язкове" }: { show
   );
 }
 
+const inputClass =
+  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
+
 export default function UploadForm() {
-  const [state, setState] = useState<FormState>(initialState);
-  const [fondName, setFondName] = useState<NameFieldState>(emptyNameState);
-  const [opisName, setOpisName] = useState<NameFieldState>(emptyNameState);
-  const [spravaName, setSpravaName] = useState<NameFieldState>(emptyNameState);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileStates, setFileStates] = useState<FileEntry[]>([]);
 
-  function update(patch: Partial<FormState>) {
-    setState((prev) => ({ ...prev, ...patch }));
+  function updateEntry(index: number, patch: Partial<FileEntry>) {
+    setFileStates((prev) => prev.map((e, i) => (i === index ? { ...e, ...patch } : e)));
   }
 
-  async function handleFondBlur(value: string) {
-    if (!state.archive || !value.trim()) return;
-    const title = `Архів:${state.archive.abbr}/${value.trim()}`;
-    if (fondName.lastFetchedTitle === title) return;
-    setFondName((p) => ({ ...p, loading: true }));
+  // Step 1 handlers
+  function handleAddFiles(newFiles: File[]) {
+    setFiles((prev) => {
+      const filtered = newFiles.filter(
+        (nf) => !prev.some((ef) => ef.name === nf.name && ef.size === nf.size)
+      );
+      return [...prev, ...filtered];
+    });
+  }
+
+  function handleRemoveFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleContinue() {
+    setFileStates(files.map(makeEntry));
+    setStep(2);
+  }
+
+  function handleBack() {
+    setStep(1);
+    setFileStates([]);
+  }
+
+  // Per-entry blur handlers
+  async function handleFondBlur(index: number, value: string) {
+    const entry = fileStates[index];
+    if (!entry.archive || !value.trim()) return;
+    const title = `Архів:${entry.archive.abbr}/${value.trim()}`;
+    if (entry.fondName.lastFetchedTitle === title) return;
+    updateEntry(index, { fondName: { ...entry.fondName, loading: true } });
     try {
       const result = await fetchWikisourceName(title);
-      setFondName({ value: "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title });
+      updateEntry(index, {
+        fondName: { value: "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title },
+      });
     } catch {
-      setFondName((p) => ({ ...p, loading: false }));
+      setFileStates((prev) =>
+        prev.map((e, i) => i === index ? { ...e, fondName: { ...e.fondName, loading: false } } : e)
+      );
     }
   }
 
-  async function handleOpisBlur(value: string) {
-    if (!state.archive || !state.fond.trim() || !value.trim()) return;
-    const title = `Архів:${state.archive.abbr}/${state.fond.trim()}/${value.trim()}`;
-    if (opisName.lastFetchedTitle === title) return;
-    setOpisName((p) => ({ ...p, loading: true }));
+  async function handleOpisBlur(index: number, value: string) {
+    const entry = fileStates[index];
+    if (!entry.archive || !entry.fond.trim() || !value.trim()) return;
+    const title = `Архів:${entry.archive.abbr}/${entry.fond.trim()}/${value.trim()}`;
+    if (entry.opisName.lastFetchedTitle === title) return;
+    updateEntry(index, { opisName: { ...entry.opisName, loading: true } });
     try {
       const result = await fetchWikisourceName(title);
-      setOpisName({ value: "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title });
+      updateEntry(index, {
+        opisName: { value: "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title },
+      });
     } catch {
-      setOpisName((p) => ({ ...p, loading: false }));
+      setFileStates((prev) =>
+        prev.map((e, i) => i === index ? { ...e, opisName: { ...e.opisName, loading: false } } : e)
+      );
     }
   }
 
-  async function handleSpravaBlur(value: string) {
-    if (!state.archive || !state.fond.trim() || !state.opis.trim() || !value.trim()) return;
-    const title = `Архів:${state.archive.abbr}/${state.fond.trim()}/${state.opis.trim()}/${value.trim()}`;
-    if (spravaName.lastFetchedTitle === title) return;
-    setSpravaName((p) => ({ ...p, loading: true }));
+  async function handleSpravaBlur(index: number, value: string) {
+    const entry = fileStates[index];
+    if (!entry.archive || !entry.fond.trim() || !entry.opis.trim() || !value.trim()) return;
+    const title = `Архів:${entry.archive.abbr}/${entry.fond.trim()}/${entry.opis.trim()}/${value.trim()}`;
+    if (entry.spravaName.lastFetchedTitle === title) return;
+    updateEntry(index, { spravaName: { ...entry.spravaName, loading: true } });
     try {
       const result = await fetchWikisourceName(title);
-      setSpravaName({ value: result.name ?? "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title });
+      updateEntry(index, {
+        spravaName: { value: result.name ?? "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title },
+      });
     } catch {
-      setSpravaName((p) => ({ ...p, loading: false }));
+      setFileStates((prev) =>
+        prev.map((e, i) => i === index ? { ...e, spravaName: { ...e.spravaName, loading: false } } : e)
+      );
     }
   }
 
-  const archiveEnabled = state.file !== null;
-  const fondEnabled = state.archive !== null;
-  const opisEnabled = state.fond.trim() !== "";
-  const spravaEnabled = state.opis.trim() !== "";
-  const dateEnabled = state.sprava.trim() !== "";
-
-  const dateState: DateState = {
-    dateFrom: state.dateFrom,
-    dateTo: state.dateTo,
-    isArbitraryDate: state.isArbitraryDate,
-    isOver75Years: state.isOver75Years,
-    isRussianEmpire: state.isRussianEmpire,
-  };
-
-  const dateError = getDateError(dateState);
-  const arbitraryOk = !state.isArbitraryDate || state.isOver75Years;
-  const datesValid =
-    dateEnabled &&
-    !dateError &&
-    arbitraryOk &&
-    (state.dateFrom.trim() !== "" || state.dateTo.trim() !== "");
-
-  // Name field writable/empty checks
-  const fondNameShown = fondName.loading || fondName.lastFetchedTitle !== "";
-  const fondNameWritable = fondNameShown && !fondName.loading && !fondName.exists;
-  const fondNameEmpty = fondNameWritable && fondName.value.trim() === "";
-
-  const opisNameShown = opisName.loading || opisName.lastFetchedTitle !== "";
-  const opisNameWritable = opisNameShown && !opisName.loading && !opisName.exists;
-  const opisNameEmpty = opisNameWritable && opisName.value.trim() === "";
-
-  const spravaNameWritable = dateEnabled && !spravaName.loading;
-  const spravaNameEmpty = spravaNameWritable && spravaName.value.trim() === "";
-
-  const formValid = datesValid && !fondNameEmpty && !opisNameEmpty && !spravaNameEmpty;
-
-  async function handleDirectUpload(currentState: FormState) {
-    const fd = new FormData();
-    fd.append("file", currentState.file!);
-    fd.append("archiveAbbr", currentState.archive!.abbr);
-    fd.append("fond", currentState.fond);
-    fd.append("opis", currentState.opis);
-    fd.append("sprava", currentState.sprava);
-    fd.append("dateFrom", currentState.dateFrom);
-    fd.append("dateTo", currentState.dateTo);
-    fd.append("isArbitraryDate", String(currentState.isArbitraryDate));
-    fd.append("isOver75Years", String(currentState.isOver75Years));
-    fd.append("isRussianEmpire", String(currentState.isRussianEmpire));
-
-    const res = await fetch("/api/upload", { method: "POST", body: fd });
-    const data = await res.json();
-    if (data.duplicateUrl) {
-      update({ status: "duplicate", duplicateUrl: data.duplicateUrl });
-    } else if (data.error) {
-      update({ status: "error", errorMessage: data.error });
-    } else {
-      update({ status: "success", resultUrl: data.url });
-    }
-  }
-
+  // Upload helpers
   async function uploadChunkWithRetry(
     chunkFd: FormData,
     retries: number
@@ -207,9 +238,7 @@ export default function UploadForm() {
       try {
         const res = await fetch("/api/upload/chunk", { method: "POST", body: chunkFd });
         const data = await res.json();
-        if (data.error) {
-          throw new Error(data.error);
-        }
+        if (data.error) throw new Error(data.error);
         return { filekey: data.filekey, offset: data.offset };
       } catch (err) {
         if (attempt === retries) throw err;
@@ -219,322 +248,467 @@ export default function UploadForm() {
     throw new Error("Unreachable");
   }
 
-  async function handleCommit(
-    filekey: string,
-    currentState: FormState
-  ): Promise<string> {
-    const file = currentState.file!;
-    const ext = file.name.split(".").pop() ?? "jpg";
-
+  async function commitUpload(filekey: string, entry: FileEntry): Promise<string> {
+    const ext = entry.file.name.split(".").pop() ?? "pdf";
     const fd = new FormData();
     fd.append("commitOnly", "true");
     fd.append("filekey", filekey);
     fd.append("ext", ext);
-    fd.append("archiveAbbr", currentState.archive!.abbr);
-    fd.append("fond", currentState.fond);
-    fd.append("opis", currentState.opis);
-    fd.append("sprava", currentState.sprava);
-    fd.append("dateFrom", currentState.dateFrom);
-    fd.append("dateTo", currentState.dateTo);
-    fd.append("isArbitraryDate", String(currentState.isArbitraryDate));
-    fd.append("isOver75Years", String(currentState.isOver75Years));
-    fd.append("isRussianEmpire", String(currentState.isRussianEmpire));
-
+    fd.append("archiveAbbr", entry.archive!.abbr);
+    fd.append("fond", entry.fond);
+    fd.append("opis", entry.opis);
+    fd.append("sprava", entry.sprava);
+    fd.append("dateFrom", entry.dateFrom);
+    fd.append("dateTo", entry.dateTo);
+    fd.append("isArbitraryDate", String(entry.isArbitraryDate));
+    fd.append("isOver75Years", String(entry.isOver75Years));
+    fd.append("isRussianEmpire", String(entry.isRussianEmpire));
     const res = await fetch("/api/upload", { method: "POST", body: fd });
     const data = await res.json();
-    if (data.duplicateUrl) {
-      update({ status: "duplicate", duplicateUrl: data.duplicateUrl });
-      return "";
-    }
-    if (data.error) {
-      throw new Error(data.error);
-    }
+    if (data.duplicateUrl) return `__duplicate__${data.duplicateUrl}`;
+    if (data.error) throw new Error(data.error);
     return data.url as string;
   }
 
-  async function handleChunkedUpload(currentState: FormState) {
-    const file = currentState.file!;
-    const fileSize = file.size;
-    const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+  async function uploadEntry(index: number, entry: FileEntry) {
+    const file = entry.file;
+    if (file.size > LARGE_FILE_THRESHOLD) {
+      const fileSize = file.size;
+      const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+      updateEntry(index, {
+        totalBytes: fileSize,
+        totalChunks,
+        uploadedBytes: 0,
+        uploadProgress: 0,
+        currentChunk: 0,
+      });
 
-    update({
-      totalBytes: fileSize,
-      totalChunks,
-      uploadedBytes: 0,
-      uploadProgress: 0,
-      currentChunk: 0,
-    });
+      let filekey = "";
+      let confirmedOffset = 0;
 
-    let filekey = "";
-    let confirmedOffset = 0;
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkStart = i * CHUNK_SIZE;
+        const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, fileSize);
+        const chunkBlob = file.slice(chunkStart, chunkEnd);
 
-    for (let i = 0; i < totalChunks; i++) {
-      const chunkStart = i * CHUNK_SIZE;
-      const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, fileSize);
-      const chunkBlob = file.slice(chunkStart, chunkEnd);
+        const chunkFd = new FormData();
+        chunkFd.append("chunk", chunkBlob, "chunk");
+        chunkFd.append("filename", file.name);
+        chunkFd.append("fileSize", String(fileSize));
+        chunkFd.append("offset", String(chunkStart));
+        if (filekey) chunkFd.append("filekey", filekey);
 
-      const chunkFd = new FormData();
-      chunkFd.append("chunk", chunkBlob, "chunk");
-      chunkFd.append("filename", file.name);
-      chunkFd.append("fileSize", String(fileSize));
-      chunkFd.append("offset", String(chunkStart));
-      if (filekey) {
-        chunkFd.append("filekey", filekey);
+        const result = await uploadChunkWithRetry(chunkFd, MAX_CHUNK_RETRIES);
+        filekey = result.filekey;
+        confirmedOffset = result.offset;
+
+        const progress = Math.round((confirmedOffset / fileSize) * 100);
+        updateEntry(index, {
+          currentChunk: i + 1,
+          uploadedBytes: confirmedOffset,
+          uploadProgress: progress,
+        });
       }
 
-      const result = await uploadChunkWithRetry(chunkFd, MAX_CHUNK_RETRIES);
-      filekey = result.filekey;
-      confirmedOffset = result.offset;
-
-      const progress = Math.round((confirmedOffset / fileSize) * 100);
-      update({
-        currentChunk: i + 1,
-        uploadedBytes: confirmedOffset,
-        uploadProgress: progress,
-      });
-    }
-
-    const url = await handleCommit(filekey, currentState);
-    if (url) {
-      update({ status: "success", resultUrl: url });
+      const url = await commitUpload(filekey, entry);
+      if (url.startsWith("__duplicate__")) {
+        updateEntry(index, { status: "duplicate", duplicateUrl: url.slice("__duplicate__".length) });
+      } else {
+        updateEntry(index, { status: "success", resultUrl: url });
+      }
+    } else {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("archiveAbbr", entry.archive!.abbr);
+      fd.append("fond", entry.fond);
+      fd.append("opis", entry.opis);
+      fd.append("sprava", entry.sprava);
+      fd.append("dateFrom", entry.dateFrom);
+      fd.append("dateTo", entry.dateTo);
+      fd.append("isArbitraryDate", String(entry.isArbitraryDate));
+      fd.append("isOver75Years", String(entry.isOver75Years));
+      fd.append("isRussianEmpire", String(entry.isRussianEmpire));
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.duplicateUrl) {
+        updateEntry(index, { status: "duplicate", duplicateUrl: data.duplicateUrl });
+      } else if (data.error) {
+        updateEntry(index, { status: "error", errorMessage: data.error });
+      } else {
+        updateEntry(index, { status: "success", resultUrl: data.url });
+      }
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (state.status === "uploading") return;
 
-    if (!formValid) {
-      update({ submitted: true });
-      return;
-    }
+    // Snapshot current state and validate
+    const current = fileStates;
+    setFileStates((prev) => prev.map((e) => ({ ...e, submitted: true })));
 
-    update({ submitted: false, status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "" });
+    const allValid = current.every(isEntryValid);
+    if (!allValid) return;
 
-    const currentState = { ...state, submitted: false, status: "uploading" as const };
-
-    try {
-      if (state.file!.size > LARGE_FILE_THRESHOLD) {
-        await handleChunkedUpload(currentState);
-      } else {
-        await handleDirectUpload(currentState);
+    for (let i = 0; i < current.length; i++) {
+      const entry = current[i];
+      if (entry.status === "success") continue;
+      updateEntry(i, { status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "" });
+      try {
+        await uploadEntry(i, entry);
+      } catch {
+        updateEntry(i, { status: "error", errorMessage: "Помилка мережі" });
       }
-    } catch {
-      update({ status: "error", errorMessage: "Помилка мережі" });
     }
   }
 
-  const inputClass =
-    "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
+  function renderEntryCard(entry: FileEntry, index: number) {
+    const fondEnabled = entry.archive !== null;
+    const opisEnabled = entry.fond.trim() !== "";
+    const spravaEnabled = entry.opis.trim() !== "";
+    const dateEnabled = entry.sprava.trim() !== "";
 
-  const uploadedMB = (state.uploadedBytes / (1024 * 1024)).toFixed(1);
-  const totalMB = (state.totalBytes / (1024 * 1024)).toFixed(1);
+    const dateState: DateState = {
+      dateFrom: entry.dateFrom,
+      dateTo: entry.dateTo,
+      isArbitraryDate: entry.isArbitraryDate,
+      isOver75Years: entry.isOver75Years,
+      isRussianEmpire: entry.isRussianEmpire,
+    };
 
-  function renderNameField(
-    nameState: NameFieldState,
-    setNameState: React.Dispatch<React.SetStateAction<NameFieldState>>,
-    label: string,
-    show: boolean,
-    alwaysWritable = false
-  ) {
-    if (!show) return null;
-    const isDisabled = alwaysWritable ? nameState.loading : nameState.loading || nameState.exists;
-    const value = nameState.loading ? "" : alwaysWritable ? nameState.value : nameState.exists ? nameState.fetched : nameState.value;
-    const isWritable = !isDisabled;
-    const nameError = state.submitted && isWritable && !nameState.loading && !nameState.exists && value.trim() === "";
+    const fondNameShown = entry.fondName.loading || entry.fondName.lastFetchedTitle !== "";
+    const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;
+    const opisNameShown = entry.opisName.loading || entry.opisName.lastFetchedTitle !== "";
+    const opisNameWritable = opisNameShown && !entry.opisName.loading && !entry.opisName.exists;
+    const spravaNameWritable = dateEnabled && !entry.spravaName.loading;
+
+    const uploadedMB = (entry.uploadedBytes / (1024 * 1024)).toFixed(1);
+    const totalMB = (entry.totalBytes / (1024 * 1024)).toFixed(1);
+
     return (
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          {label}
-        </label>
-        <input
-          type="text"
-          disabled={isDisabled}
-          value={value}
-          onChange={isDisabled ? undefined : (e) => setNameState((p) => ({ ...p, value: e.target.value }))}
-          placeholder={nameState.loading ? "Завантаження…" : `Введіть ${label.toLowerCase()}`}
-          className={inputClass}
-        />
-        <FieldError show={nameError} />
+      <div key={index} className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+        <h3 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          {entry.file.name}
+        </h3>
+
+        {/* Archive */}
+        <div>
+          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Архів
+          </label>
+          <ArchiveCombobox
+            value={entry.archive}
+            onChange={(a) =>
+              updateEntry(index, {
+                archive: a,
+                fond: "",
+                opis: "",
+                sprava: "",
+                dateFrom: "",
+                dateTo: "",
+                fondName: emptyNameState,
+                opisName: emptyNameState,
+                spravaName: emptyNameState,
+              })
+            }
+            disabled={false}
+          />
+          <FieldError show={entry.submitted && entry.archive === null} />
+        </div>
+
+        {/* Fond / Opis / Sprava */}
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Фонд
+            </label>
+            <input
+              type="text"
+              value={entry.fond}
+              onChange={(e) =>
+                updateEntry(index, {
+                  fond: e.target.value,
+                  opis: "",
+                  sprava: "",
+                  dateFrom: "",
+                  dateTo: "",
+                  fondName: emptyNameState,
+                  opisName: emptyNameState,
+                  spravaName: emptyNameState,
+                })
+              }
+              onBlur={(e) => handleFondBlur(index, e.target.value)}
+              disabled={!fondEnabled}
+              placeholder="напр. 201"
+              className={inputClass}
+            />
+            <FieldError show={entry.submitted && fondEnabled && entry.fond.trim() === ""} />
+          </div>
+
+          <div className="flex-1">
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Опис
+            </label>
+            <input
+              type="text"
+              value={entry.opis}
+              onChange={(e) =>
+                updateEntry(index, {
+                  opis: e.target.value,
+                  sprava: "",
+                  dateFrom: "",
+                  dateTo: "",
+                  opisName: emptyNameState,
+                  spravaName: emptyNameState,
+                })
+              }
+              onBlur={(e) => handleOpisBlur(index, e.target.value)}
+              disabled={!opisEnabled}
+              placeholder="напр. 1"
+              className={inputClass}
+            />
+            <FieldError show={entry.submitted && opisEnabled && entry.opis.trim() === ""} />
+          </div>
+
+          <div className="flex-1">
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Справа
+            </label>
+            <input
+              type="text"
+              value={entry.sprava}
+              onChange={(e) =>
+                updateEntry(index, {
+                  sprava: e.target.value,
+                  dateFrom: "",
+                  dateTo: "",
+                  spravaName: emptyNameState,
+                })
+              }
+              onBlur={(e) => handleSpravaBlur(index, e.target.value)}
+              disabled={!spravaEnabled}
+              placeholder="напр. 3350"
+              className={inputClass}
+            />
+            <FieldError show={entry.submitted && spravaEnabled && entry.sprava.trim() === ""} />
+          </div>
+        </div>
+
+        {/* Name fields */}
+        <div className="flex flex-col gap-2">
+          {fondNameShown && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Назва фонду
+              </label>
+              <input
+                type="text"
+                disabled={entry.fondName.loading || entry.fondName.exists}
+                value={
+                  entry.fondName.loading
+                    ? ""
+                    : entry.fondName.exists
+                    ? entry.fondName.fetched
+                    : entry.fondName.value
+                }
+                onChange={(e) =>
+                  !entry.fondName.loading &&
+                  !entry.fondName.exists &&
+                  updateEntry(index, { fondName: { ...entry.fondName, value: e.target.value } })
+                }
+                placeholder={entry.fondName.loading ? "Завантаження…" : "Введіть назву фонду"}
+                className={inputClass}
+              />
+              <FieldError
+                show={
+                  entry.submitted &&
+                  fondNameWritable &&
+                  !entry.fondName.loading &&
+                  entry.fondName.value.trim() === ""
+                }
+              />
+            </div>
+          )}
+
+          {opisNameShown && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Назва опису
+              </label>
+              <input
+                type="text"
+                disabled={entry.opisName.loading || entry.opisName.exists}
+                value={
+                  entry.opisName.loading
+                    ? ""
+                    : entry.opisName.exists
+                    ? entry.opisName.fetched
+                    : entry.opisName.value
+                }
+                onChange={(e) =>
+                  !entry.opisName.loading &&
+                  !entry.opisName.exists &&
+                  updateEntry(index, { opisName: { ...entry.opisName, value: e.target.value } })
+                }
+                placeholder={entry.opisName.loading ? "Завантаження…" : "Введіть назву опису"}
+                className={inputClass}
+              />
+              <FieldError
+                show={
+                  entry.submitted &&
+                  opisNameWritable &&
+                  !entry.opisName.loading &&
+                  entry.opisName.value.trim() === ""
+                }
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Назва справи
+            </label>
+            <input
+              type="text"
+              disabled={!dateEnabled || entry.spravaName.loading}
+              value={entry.spravaName.loading ? "" : entry.spravaName.value}
+              onChange={(e) =>
+                dateEnabled &&
+                !entry.spravaName.loading &&
+                updateEntry(index, { spravaName: { ...entry.spravaName, value: e.target.value } })
+              }
+              placeholder={entry.spravaName.loading ? "Завантаження…" : "Введіть назву справи"}
+              className={inputClass}
+            />
+            <FieldError
+              show={entry.submitted && spravaNameWritable && entry.spravaName.value.trim() === ""}
+            />
+          </div>
+        </div>
+
+        {/* Dates */}
+        <div>
+          <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Дати
+          </label>
+          <DateFields
+            state={dateState}
+            onChange={(patch) => updateEntry(index, patch)}
+            disabled={!dateEnabled}
+          />
+          <FieldError
+            show={
+              entry.submitted &&
+              dateEnabled &&
+              entry.dateFrom.trim() === "" &&
+              entry.dateTo.trim() === ""
+            }
+            message="Вкажіть хоча б одну дату"
+          />
+          <FieldError
+            show={entry.submitted && dateEnabled && entry.isArbitraryDate && !entry.isOver75Years}
+            message="Підтвердіть, що справі більше 75 років"
+          />
+        </div>
+
+        {/* Upload status */}
+        {entry.status === "uploading" && entry.totalChunks > 0 && (
+          <div className="flex flex-col gap-1">
+            <div className="text-sm text-zinc-600 dark:text-zinc-400">
+              Чанк {entry.currentChunk} з {entry.totalChunks} — {entry.uploadProgress}%
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+              <div
+                style={{ width: `${entry.uploadProgress}%` }}
+                className="h-2 rounded-full bg-blue-600 transition-all duration-300"
+              />
+            </div>
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">
+              {uploadedMB} МБ з {totalMB} МБ
+            </div>
+          </div>
+        )}
+
+        {entry.status === "uploading" && entry.totalChunks === 0 && (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Завантаження…</p>
+        )}
+
+        {entry.status === "success" && (
+          <p className="text-sm text-green-700 dark:text-green-400">
+            Успішно!{" "}
+            <a href={entry.resultUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              Переглянути файл
+            </a>
+          </p>
+        )}
+
+        {entry.status === "duplicate" && (
+          <p className="text-sm text-yellow-700 dark:text-yellow-400">
+            Файл з таким вмістом вже існує у Вікісховищі.{" "}
+            <a
+              href={entry.duplicateUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              Переглянути існуючий файл
+            </a>
+          </p>
+        )}
+
+        {entry.status === "error" && (
+          <p className="text-sm text-red-600 dark:text-red-400">{entry.errorMessage}</p>
+        )}
       </div>
     );
   }
 
+  // Step 1
+  if (step === 1) {
+    return (
+      <div className="flex flex-col gap-4">
+        <FileDropZone files={files} onAdd={handleAddFiles} onRemove={handleRemoveFile} />
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={files.length === 0}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
+        >
+          Продовжити
+        </button>
+      </div>
+    );
+  }
+
+  // Step 2
+  const isAnyUploading = fileStates.some((e) => e.status === "uploading");
+  const allSucceeded = fileStates.length > 0 && fileStates.every((e) => e.status === "success");
+  const hasErrors = fileStates.some((e) => e.submitted && !isEntryValid(e));
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* File */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Файл
-        </label>
-        <input
-          type="file"
-          accept="image/*,.pdf,.tif,.tiff"
-          onChange={(e) => update({ file: e.target.files?.[0] ?? null, archive: null, fond: "", opis: "", sprava: "", dateFrom: "", dateTo: "", submitted: false })}
-          className="w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200 dark:text-zinc-300 dark:file:bg-zinc-700 dark:file:text-zinc-300"
-        />
-      </div>
-
-      {/* Archive */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Архів
-        </label>
-        <ArchiveCombobox
-          value={state.archive}
-          onChange={(a) => {
-            update({ archive: a, fond: "", opis: "", sprava: "", dateFrom: "", dateTo: "" });
-            setFondName(emptyNameState);
-            setOpisName(emptyNameState);
-            setSpravaName(emptyNameState);
-          }}
-          disabled={!archiveEnabled}
-        />
-        <FieldError show={state.submitted && archiveEnabled && state.archive === null} />
-      </div>
-
-      {/* Fond / Opis / Sprava */}
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Фонд
-          </label>
-          <input
-            type="text"
-            value={state.fond}
-            onChange={(e) => {
-              update({ fond: e.target.value, opis: "", sprava: "", dateFrom: "", dateTo: "" });
-              setFondName(emptyNameState);
-              setOpisName(emptyNameState);
-              setSpravaName(emptyNameState);
-            }}
-            onBlur={(e) => handleFondBlur(e.target.value)}
-            disabled={!fondEnabled}
-            placeholder="напр. 201"
-            className={inputClass}
-          />
-          <FieldError show={state.submitted && fondEnabled && state.fond.trim() === ""} />
-        </div>
-
-        <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Опис
-          </label>
-          <input
-            type="text"
-            value={state.opis}
-            onChange={(e) => {
-              update({ opis: e.target.value, sprava: "", dateFrom: "", dateTo: "" });
-              setOpisName(emptyNameState);
-              setSpravaName(emptyNameState);
-            }}
-            onBlur={(e) => handleOpisBlur(e.target.value)}
-            disabled={!opisEnabled}
-            placeholder="напр. 1"
-            className={inputClass}
-          />
-          <FieldError show={state.submitted && opisEnabled && state.opis.trim() === ""} />
-        </div>
-
-        <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Справа
-          </label>
-          <input
-            type="text"
-            value={state.sprava}
-            onChange={(e) => {
-              update({ sprava: e.target.value, dateFrom: "", dateTo: "" });
-              setSpravaName(emptyNameState);
-            }}
-            onBlur={(e) => handleSpravaBlur(e.target.value)}
-            disabled={!spravaEnabled}
-            placeholder="напр. 3350"
-            className={inputClass}
-          />
-          <FieldError show={state.submitted && spravaEnabled && state.sprava.trim() === ""} />
-        </div>
-      </div>
-
-      {/* Names — full-width rows below fond/opis/sprava */}
-      <div className="flex flex-col gap-2">
-        {fondNameShown && renderNameField(fondName, setFondName, "Назва фонду", true)}
-        {opisNameShown && renderNameField(opisName, setOpisName, "Назва опису", true)}
-        {renderNameField(spravaName, setSpravaName, "Назва справи", true, true)}
-      </div>
-
-      {/* Dates */}
-      <div>
-        <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Дати
-        </label>
-        <DateFields
-          state={dateState}
-          onChange={(patch) => update(patch)}
-          disabled={!dateEnabled}
-        />
-        <FieldError
-          show={state.submitted && dateEnabled && state.dateFrom.trim() === "" && state.dateTo.trim() === ""}
-          message="Вкажіть хоча б одну дату"
-        />
-        <FieldError
-          show={state.submitted && dateEnabled && state.isArbitraryDate && !state.isOver75Years}
-          message="Підтвердіть, що справі більше 75 років"
-        />
-      </div>
-
-      {/* Submit */}
       <button
-        type="submit"
-        disabled={(state.submitted && !formValid) || state.status === "uploading" || state.status === "success"}
-        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
+        type="button"
+        onClick={handleBack}
+        className="self-start text-sm text-blue-600 hover:underline dark:text-blue-400"
       >
-        {state.status === "uploading" ? "Завантаження…" : "Завантажити на Commons"}
+        ← Назад
       </button>
 
-      {state.submitted && !formValid && (
+      {fileStates.map((entry, index) => renderEntryCard(entry, index))}
+
+      <button
+        type="submit"
+        disabled={isAnyUploading || allSucceeded}
+        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
+      >
+        {isAnyUploading ? "Завантаження…" : "Завантажити на Commons"}
+      </button>
+
+      {hasErrors && (
         <p className="text-sm text-red-600 dark:text-red-400">
           У формі наявні помилки. Виправте їх і спробуйте знову.
         </p>
-      )}
-
-      {state.status === "uploading" && state.totalChunks > 0 && (
-        <div className="flex flex-col gap-1">
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            Чанк {state.currentChunk} з {state.totalChunks} — {state.uploadProgress}%
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-            <div
-              style={{ width: `${state.uploadProgress}%` }}
-              className="h-2 bg-blue-600 rounded-full transition-all duration-300"
-            />
-          </div>
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">
-            {uploadedMB} МБ з {totalMB} МБ
-          </div>
-        </div>
-      )}
-
-      {state.status === "success" && (
-        <p className="text-sm text-green-700 dark:text-green-400">
-          Успішно!{" "}
-          <a href={state.resultUrl} target="_blank" rel="noopener noreferrer" className="underline">
-            Переглянути файл
-          </a>
-        </p>
-      )}
-
-      {state.status === "duplicate" && (
-        <p className="text-sm text-yellow-700 dark:text-yellow-400">
-          Файл з таким вмістом вже існує у Вікісховищі.{" "}
-          <a href={state.duplicateUrl} target="_blank" rel="noopener noreferrer" className="underline">
-            Переглянути існуючий файл
-          </a>
-        </p>
-      )}
-
-      {state.status === "error" && (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.errorMessage}</p>
       )}
     </form>
   );
