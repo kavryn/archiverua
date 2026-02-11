@@ -22,17 +22,18 @@ export function useUploadForm() {
   }
 
   function handleRemoveFile(index: number) {
+    const fileToRemove = files[index];
     setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFileStates((prev) => prev.filter((e) => e.file !== fileToRemove));
   }
 
   function handleContinue() {
-    setFileStates(files.map(makeEntry));
+    setFileStates(files.map((f) => fileStates.find((e) => e.file === f) ?? makeEntry(f)));
     setStep(2);
   }
 
   function handleBack() {
     setStep(1);
-    setFileStates([]);
   }
 
   // Per-entry blur handlers
