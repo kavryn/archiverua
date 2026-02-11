@@ -69,6 +69,9 @@ export default function ArchiveCombobox({ value, onChange, disabled }: Props) {
       setOpen(false);
       setQuery("");
       inputRef.current?.blur();
+    } else if (e.key === "Tab") {
+      setOpen(false);
+      setQuery("");
     }
   }
 
