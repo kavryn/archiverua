@@ -74,6 +74,7 @@ The app requires the following environment variables, which must be set as Toolf
 | `AUTH_WIKIMEDIA_ID` | OAuth 2.0 Client ID from [Special:OAuthConsumerRegistration](https://meta.wikimedia.org/wiki/Special:OAuthConsumerRegistration) |
 | `AUTH_WIKIMEDIA_SECRET` | OAuth 2.0 Client Secret for the registered consumer |
 | `AUTH_URL` | Public base URL of the app (must match the callback URL registered with Wikimedia) |
+| `OAUTH_CID` | Numeric OAuth Consumer ID used to filter user contributions by this app's uploads (different for test and production) |
 
 **Create secrets on Toolforge:**
 ```bash
@@ -81,6 +82,7 @@ toolforge envvars create AUTH_SECRET "..."
 toolforge envvars create AUTH_WIKIMEDIA_ID "..."
 toolforge envvars create AUTH_WIKIMEDIA_SECRET "..."
 toolforge envvars create AUTH_URL "https://archiverua.toolforge.org"
+toolforge envvars create OAUTH_CID "..."
 ```
 
 **List / delete secrets:**

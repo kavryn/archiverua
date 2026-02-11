@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import AuthButton from "@/components/AuthButton";
+import AppHeader from "@/components/AppHeader";
 import UploadForm from "@/components/UploadForm";
 
 export default async function Home() {
@@ -8,12 +8,7 @@ export default async function Home() {
   if (session?.user) {
     return (
       <div className="flex min-h-screen flex-col bg-zinc-50 font-sans dark:bg-black">
-        <header className="flex items-center justify-between border-b border-zinc-200 px-16 py-4 dark:border-zinc-800">
-          <h1 className="text-xl font-semibold tracking-tight text-black dark:text-zinc-50">
-            Вікіархіватор
-          </h1>
-          <AuthButton />
-        </header>
+        <AppHeader />
         <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-16 py-12">
           <UploadForm />
         </main>
