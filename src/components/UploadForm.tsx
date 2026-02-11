@@ -29,6 +29,7 @@ interface FormState {
   totalBytes: number;
   currentChunk: number;
   totalChunks: number;
+  submitted: boolean;
 }
 
 interface NameFieldState {
@@ -74,7 +75,20 @@ const initialState: FormState = {
   totalBytes: 0,
   currentChunk: 0,
   totalChunks: 0,
+  submitted: false,
 };
+
+function FieldError({ show, message = "Поле обов'язкове" }: { show: boolean; message?: string }) {
+  if (!show) return null;
+  return (
+    <p className="mt-1 flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
+      <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+      </svg>
+      {message}
+    </p>
+  );
+}
 
 export default function UploadForm() {
   const [state, setState] = useState<FormState>(initialState);
@@ -141,11 +155,25 @@ export default function UploadForm() {
 
   const dateError = getDateError(dateState);
   const arbitraryOk = !state.isArbitraryDate || state.isOver75Years;
-  const submitEnabled =
+  const datesValid =
     dateEnabled &&
     !dateError &&
     arbitraryOk &&
     (state.dateFrom.trim() !== "" || state.dateTo.trim() !== "");
+
+  // Name field writable/empty checks
+  const fondNameShown = fondName.loading || fondName.lastFetchedTitle !== "";
+  const fondNameWritable = fondNameShown && !fondName.loading && !fondName.exists;
+  const fondNameEmpty = fondNameWritable && fondName.value.trim() === "";
+
+  const opisNameShown = opisName.loading || opisName.lastFetchedTitle !== "";
+  const opisNameWritable = opisNameShown && !opisName.loading && !opisName.exists;
+  const opisNameEmpty = opisNameWritable && opisName.value.trim() === "";
+
+  const spravaNameWritable = dateEnabled && !spravaName.loading;
+  const spravaNameEmpty = spravaNameWritable && spravaName.value.trim() === "";
+
+  const formValid = datesValid && !fondNameEmpty && !opisNameEmpty && !spravaNameEmpty;
 
   async function handleDirectUpload(currentState: FormState) {
     const fd = new FormData();
@@ -274,11 +302,16 @@ export default function UploadForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!submitEnabled || state.status === "uploading") return;
+    if (state.status === "uploading") return;
 
-    update({ status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "" });
+    if (!formValid) {
+      update({ submitted: true });
+      return;
+    }
 
-    const currentState = { ...state, status: "uploading" as const };
+    update({ submitted: false, status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "" });
+
+    const currentState = { ...state, submitted: false, status: "uploading" as const };
 
     try {
       if (state.file!.size > LARGE_FILE_THRESHOLD) {
@@ -307,6 +340,8 @@ export default function UploadForm() {
     if (!show) return null;
     const isDisabled = alwaysWritable ? nameState.loading : nameState.loading || nameState.exists;
     const value = nameState.loading ? "" : alwaysWritable ? nameState.value : nameState.exists ? nameState.fetched : nameState.value;
+    const isWritable = !isDisabled;
+    const nameError = state.submitted && isWritable && !nameState.loading && !nameState.exists && value.trim() === "";
     return (
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -320,6 +355,7 @@ export default function UploadForm() {
           placeholder={nameState.loading ? "Завантаження…" : `Введіть ${label.toLowerCase()}`}
           className={inputClass}
         />
+        <FieldError show={nameError} />
       </div>
     );
   }
@@ -334,7 +370,7 @@ export default function UploadForm() {
         <input
           type="file"
           accept="image/*,.pdf,.tif,.tiff"
-          onChange={(e) => update({ file: e.target.files?.[0] ?? null, archive: null, fond: "", opis: "", sprava: "", dateFrom: "", dateTo: "" })}
+          onChange={(e) => update({ file: e.target.files?.[0] ?? null, archive: null, fond: "", opis: "", sprava: "", dateFrom: "", dateTo: "", submitted: false })}
           className="w-full text-sm text-zinc-700 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-zinc-700 hover:file:bg-zinc-200 dark:text-zinc-300 dark:file:bg-zinc-700 dark:file:text-zinc-300"
         />
       </div>
@@ -354,6 +390,7 @@ export default function UploadForm() {
           }}
           disabled={!archiveEnabled}
         />
+        <FieldError show={state.submitted && archiveEnabled && state.archive === null} />
       </div>
 
       {/* Fond / Opis / Sprava */}
@@ -376,6 +413,7 @@ export default function UploadForm() {
             placeholder="напр. 201"
             className={inputClass}
           />
+          <FieldError show={state.submitted && fondEnabled && state.fond.trim() === ""} />
         </div>
 
         <div className="flex-1">
@@ -395,6 +433,7 @@ export default function UploadForm() {
             placeholder="напр. 1"
             className={inputClass}
           />
+          <FieldError show={state.submitted && opisEnabled && state.opis.trim() === ""} />
         </div>
 
         <div className="flex-1">
@@ -413,13 +452,14 @@ export default function UploadForm() {
             placeholder="напр. 3350"
             className={inputClass}
           />
+          <FieldError show={state.submitted && spravaEnabled && state.sprava.trim() === ""} />
         </div>
       </div>
 
       {/* Names — full-width rows below fond/opis/sprava */}
       <div className="flex flex-col gap-2">
-        {(fondName.loading || fondName.lastFetchedTitle !== "") && renderNameField(fondName, setFondName, "Назва фонду", true)}
-        {(opisName.loading || opisName.lastFetchedTitle !== "") && renderNameField(opisName, setOpisName, "Назва опису", true)}
+        {fondNameShown && renderNameField(fondName, setFondName, "Назва фонду", true)}
+        {opisNameShown && renderNameField(opisName, setOpisName, "Назва опису", true)}
         {renderNameField(spravaName, setSpravaName, "Назва справи", true, true)}
       </div>
 
@@ -433,16 +473,30 @@ export default function UploadForm() {
           onChange={(patch) => update(patch)}
           disabled={!dateEnabled}
         />
+        <FieldError
+          show={state.submitted && dateEnabled && state.dateFrom.trim() === "" && state.dateTo.trim() === ""}
+          message="Вкажіть хоча б одну дату"
+        />
+        <FieldError
+          show={state.submitted && dateEnabled && state.isArbitraryDate && !state.isOver75Years}
+          message="Підтвердіть, що справі більше 75 років"
+        />
       </div>
 
       {/* Submit */}
       <button
         type="submit"
-        disabled={!submitEnabled || state.status === "uploading" || state.status === "success"}
+        disabled={(state.submitted && !formValid) || state.status === "uploading" || state.status === "success"}
         className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
       >
         {state.status === "uploading" ? "Завантаження…" : "Завантажити на Commons"}
       </button>
+
+      {state.submitted && !formValid && (
+        <p className="text-sm text-red-600 dark:text-red-400">
+          У формі наявні помилки. Виправте їх і спробуйте знову.
+        </p>
+      )}
 
       {state.status === "uploading" && state.totalChunks > 0 && (
         <div className="flex flex-col gap-1">
