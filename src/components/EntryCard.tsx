@@ -1,0 +1,314 @@
+import ArchiveCombobox from "./ArchiveCombobox";
+import DateFields, { type DateState } from "./DateFields";
+import FieldError from "./FieldError";
+import { emptyNameState, type FileEntry } from "@/types/upload-form";
+
+interface EntryCardProps {
+  entry: FileEntry;
+  inputClass: string;
+  onUpdate: (patch: Partial<FileEntry>) => void;
+  onFondBlur: (value: string) => void;
+  onOpisBlur: (value: string) => void;
+  onSpravaBlur: (value: string) => void;
+}
+
+export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onOpisBlur, onSpravaBlur }: EntryCardProps) {
+  const fondEnabled = entry.archive !== null;
+  const opisEnabled = entry.fond.trim() !== "";
+  const spravaEnabled = entry.opis.trim() !== "";
+  const dateEnabled = entry.sprava.trim() !== "";
+
+  const dateState: DateState = {
+    dateFrom: entry.dateFrom,
+    dateTo: entry.dateTo,
+    isArbitraryDate: entry.isArbitraryDate,
+    isOver75Years: entry.isOver75Years,
+    isRussianEmpire: entry.isRussianEmpire,
+  };
+
+  const fondNameShown = entry.fondName.loading || entry.fondName.lastFetchedTitle !== "";
+  const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;
+  const opisNameShown = entry.opisName.loading || entry.opisName.lastFetchedTitle !== "";
+  const opisNameWritable = opisNameShown && !entry.opisName.loading && !entry.opisName.exists;
+  const spravaNameWritable = dateEnabled && !entry.spravaName.loading;
+
+  const uploadedMB = (entry.uploadedBytes / (1024 * 1024)).toFixed(1);
+  const totalMB = (entry.totalBytes / (1024 * 1024)).toFixed(1);
+
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+      <h2 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+        {entry.file.name}
+      </h2>
+
+      {/* Archive */}
+      <div>
+        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Архів
+        </label>
+        <ArchiveCombobox
+          value={entry.archive}
+          onChange={(a) =>
+            onUpdate({
+              archive: a,
+              fond: "",
+              opis: "",
+              sprava: "",
+              dateFrom: "",
+              dateTo: "",
+              fondName: emptyNameState,
+              opisName: emptyNameState,
+              spravaName: emptyNameState,
+            })
+          }
+          disabled={false}
+        />
+        <FieldError show={entry.submitted && entry.archive === null} />
+      </div>
+
+      {/* Fond / Opis / Sprava */}
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Фонд
+          </label>
+          <input
+            type="text"
+            value={entry.fond}
+            onChange={(e) =>
+              onUpdate({
+                fond: e.target.value,
+                opis: "",
+                sprava: "",
+                dateFrom: "",
+                dateTo: "",
+                fondName: emptyNameState,
+                opisName: emptyNameState,
+                spravaName: emptyNameState,
+              })
+            }
+            onBlur={(e) => onFondBlur(e.target.value)}
+            disabled={!fondEnabled}
+            placeholder="напр. 201"
+            className={inputClass}
+          />
+          <FieldError show={entry.submitted && fondEnabled && entry.fond.trim() === ""} />
+        </div>
+
+        <div className="flex-1">
+          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Опис
+          </label>
+          <input
+            type="text"
+            value={entry.opis}
+            onChange={(e) =>
+              onUpdate({
+                opis: e.target.value,
+                sprava: "",
+                dateFrom: "",
+                dateTo: "",
+                opisName: emptyNameState,
+                spravaName: emptyNameState,
+              })
+            }
+            onBlur={(e) => onOpisBlur(e.target.value)}
+            disabled={!opisEnabled}
+            placeholder="напр. 1"
+            className={inputClass}
+          />
+          <FieldError show={entry.submitted && opisEnabled && entry.opis.trim() === ""} />
+        </div>
+
+        <div className="flex-1">
+          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Справа
+          </label>
+          <input
+            type="text"
+            value={entry.sprava}
+            onChange={(e) =>
+              onUpdate({
+                sprava: e.target.value,
+                dateFrom: "",
+                dateTo: "",
+                spravaName: emptyNameState,
+              })
+            }
+            onBlur={(e) => onSpravaBlur(e.target.value)}
+            disabled={!spravaEnabled}
+            placeholder="напр. 3350"
+            className={inputClass}
+          />
+          <FieldError show={entry.submitted && spravaEnabled && entry.sprava.trim() === ""} />
+        </div>
+      </div>
+
+      {/* Name fields */}
+      <div className="flex flex-col gap-2">
+        {fondNameShown && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Назва фонду
+            </label>
+            <input
+              type="text"
+              disabled={entry.fondName.loading || entry.fondName.exists}
+              value={
+                entry.fondName.loading
+                  ? ""
+                  : entry.fondName.exists
+                  ? entry.fondName.fetched
+                  : entry.fondName.value
+              }
+              onChange={(e) =>
+                !entry.fondName.loading &&
+                !entry.fondName.exists &&
+                onUpdate({ fondName: { ...entry.fondName, value: e.target.value } })
+              }
+              placeholder={entry.fondName.loading ? "Завантаження…" : "Введіть назву фонду"}
+              className={inputClass}
+            />
+            <FieldError
+              show={
+                entry.submitted &&
+                fondNameWritable &&
+                !entry.fondName.loading &&
+                entry.fondName.value.trim() === ""
+              }
+            />
+          </div>
+        )}
+
+        {opisNameShown && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Назва опису
+            </label>
+            <input
+              type="text"
+              disabled={entry.opisName.loading || entry.opisName.exists}
+              value={
+                entry.opisName.loading
+                  ? ""
+                  : entry.opisName.exists
+                  ? entry.opisName.fetched
+                  : entry.opisName.value
+              }
+              onChange={(e) =>
+                !entry.opisName.loading &&
+                !entry.opisName.exists &&
+                onUpdate({ opisName: { ...entry.opisName, value: e.target.value } })
+              }
+              placeholder={entry.opisName.loading ? "Завантаження…" : "Введіть назву опису"}
+              className={inputClass}
+            />
+            <FieldError
+              show={
+                entry.submitted &&
+                opisNameWritable &&
+                !entry.opisName.loading &&
+                entry.opisName.value.trim() === ""
+              }
+            />
+          </div>
+        )}
+
+        <div>
+          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Назва справи
+          </label>
+          <input
+            type="text"
+            disabled={!dateEnabled || entry.spravaName.loading}
+            value={entry.spravaName.loading ? "" : entry.spravaName.value}
+            onChange={(e) =>
+              dateEnabled &&
+              !entry.spravaName.loading &&
+              onUpdate({ spravaName: { ...entry.spravaName, value: e.target.value } })
+            }
+            placeholder={entry.spravaName.loading ? "Завантаження…" : "Введіть назву справи"}
+            className={inputClass}
+          />
+          <FieldError
+            show={entry.submitted && spravaNameWritable && entry.spravaName.value.trim() === ""}
+          />
+        </div>
+      </div>
+
+      {/* Dates */}
+      <div>
+        <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Дати
+        </label>
+        <DateFields
+          state={dateState}
+          onChange={(patch) => onUpdate(patch)}
+          disabled={!dateEnabled}
+        />
+        <FieldError
+          show={
+            entry.submitted &&
+            dateEnabled &&
+            entry.dateFrom.trim() === "" &&
+            entry.dateTo.trim() === ""
+          }
+          message="Вкажіть хоча б одну дату"
+        />
+        <FieldError
+          show={entry.submitted && dateEnabled && entry.isArbitraryDate && !entry.isOver75Years}
+          message="Підтвердіть, що справі більше 75 років"
+        />
+      </div>
+
+      {/* Upload status */}
+      {entry.status === "uploading" && entry.totalChunks > 0 && (
+        <div className="flex flex-col gap-1">
+          <div className="text-sm text-zinc-600 dark:text-zinc-400">
+            Чанк {entry.currentChunk} з {entry.totalChunks} — {entry.uploadProgress}%
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+            <div
+              style={{ width: `${entry.uploadProgress}%` }}
+              className="h-2 rounded-full bg-blue-600 transition-all duration-300"
+            />
+          </div>
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+            {uploadedMB} МБ з {totalMB} МБ
+          </div>
+        </div>
+      )}
+
+      {entry.status === "uploading" && entry.totalChunks === 0 && (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">Завантаження…</p>
+      )}
+
+      {entry.status === "success" && (
+        <p className="text-sm text-green-700 dark:text-green-400">
+          Успішно!{" "}
+          <a href={entry.resultUrl} target="_blank" rel="noopener noreferrer" className="underline">
+            Переглянути файл
+          </a>
+        </p>
+      )}
+
+      {entry.status === "duplicate" && (
+        <p className="text-sm text-yellow-700 dark:text-yellow-400">
+          Файл з таким вмістом вже існує у Вікісховищі.{" "}
+          <a
+            href={entry.duplicateUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            Переглянути існуючий файл
+          </a>
+        </p>
+      )}
+
+      {entry.status === "error" && (
+        <p className="text-sm text-red-600 dark:text-red-400">{entry.errorMessage}</p>
+      )}
+    </div>
+  );
+}
