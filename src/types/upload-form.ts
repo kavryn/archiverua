@@ -95,10 +95,6 @@ export function isEntryValid(entry: FileEntry): boolean {
   const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;
   const fondNameEmpty = fondNameWritable && entry.fondName.value.trim() === "";
 
-  const opisNameShown = entry.opisName.loading || entry.opisName.lastFetchedTitle !== "";
-  const opisNameWritable = opisNameShown && !entry.opisName.loading && !entry.opisName.exists;
-  const opisNameEmpty = opisNameWritable && entry.opisName.value.trim() === "";
-
   const spravaNameWritable = dateEnabled && !entry.spravaName.loading;
   const spravaNameEmpty = spravaNameWritable && entry.spravaName.value.trim() === "";
 
@@ -109,7 +105,6 @@ export function isEntryValid(entry: FileEntry): boolean {
     entry.sprava.trim() !== "" &&
     datesValid &&
     !fondNameEmpty &&
-    !opisNameEmpty &&
     !spravaNameEmpty
   );
 }

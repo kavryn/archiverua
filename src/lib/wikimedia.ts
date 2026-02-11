@@ -1,12 +1,13 @@
 import "server-only";
 
-const API_URL = "https://commons.wikimedia.org/w/api.php";
+const API_URL = process.env.NEXT_PUBLIC_WIKI_API_URL ?? "https://commons.wikimedia.org/w/api.php";
+const WIKI_BASE = API_URL.replace(/\/w\/api\.php$/, "");
 
 export class DuplicateFileError extends Error {
   duplicateUrl: string;
   constructor(filename: string) {
     super("Файл з таким вмістом вже існує у Вікісховищі");
-    this.duplicateUrl = `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(filename)}`;
+    this.duplicateUrl = `${WIKI_BASE}/wiki/File:${encodeURIComponent(filename)}`;
   }
 }
 
@@ -67,7 +68,7 @@ export async function uploadFile(params: UploadParams): Promise<string> {
 
   const fileUrl: string =
     data.upload?.imageinfo?.url ??
-    `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(params.filename)}`;
+    `${WIKI_BASE}/wiki/File:${encodeURIComponent(params.filename)}`;
 
   return fileUrl;
 }
@@ -201,7 +202,7 @@ export async function commitChunkedUpload(params: CommitUploadParams): Promise<s
 
   const fileUrl: string =
     data.upload?.imageinfo?.url ??
-    `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(params.filename)}`;
+    `${WIKI_BASE}/wiki/File:${encodeURIComponent(params.filename)}`;
 
   return fileUrl;
 }

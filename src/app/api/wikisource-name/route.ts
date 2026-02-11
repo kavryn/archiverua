@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
       format: "json",
     });
 
-    const res = await fetch(`https://uk.wikisource.org/w/api.php?${params}`, {
+    const wikisourceApi = process.env.NEXT_PUBLIC_WIKI_API_URL ?? "https://uk.wikisource.org/w/api.php";
+    const res = await fetch(`${wikisourceApi}?${params}`, {
       headers: { "User-Agent": "archiverua/1.0" },
     });
     const data = await res.json();

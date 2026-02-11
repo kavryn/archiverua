@@ -183,7 +183,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
         {opisNameShown && (
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Назва опису
+              Назва опису <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
             </label>
             <input
               type="text"
@@ -202,14 +202,6 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
               }
               placeholder={entry.opisName.loading ? "Завантаження…" : "Введіть назву опису"}
               className={inputClass}
-            />
-            <FieldError
-              show={
-                entry.submitted &&
-                opisNameWritable &&
-                !entry.opisName.loading &&
-                entry.opisName.value.trim() === ""
-              }
             />
           </div>
         )}
