@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { TrashIcon } from "@heroicons/react/24/outline";
 
 interface Props {
   files: File[];
@@ -101,7 +102,7 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
                   className="text-zinc-400 transition-colors hover:text-red-500 dark:hover:text-red-400"
                   aria-label={`Видалити ${file.name}`}
                 >
-                  ×
+                  <TrashIcon className="size-4" />
                 </button>
               </div>
             </li>
