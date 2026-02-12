@@ -42,26 +42,27 @@ ssh YOUR_WIKIMEDIA_USER@login.toolforge.org
 # 2. Switch to tool account
 become archiverua
 
-# 3. Prepare directory and clone repo
-mkdir -p ~/www/js
-cd ~/www/js
-git clone https://github.com/YOUR_USERNAME/archiverua.git .
+# 3. Trigger the first build (buildpack runs npm ci + next build)
+toolforge build start https://github.com/kavryn/archiverua.git
 
-# 4. Copy service.template to tool home directory
-cp ~/www/js/service.template ~/service.template
+# 4. Wait for build to succeed
+toolforge build show
 
-# 5. Start webservice (build takes ~3-5 min)
-toolforge webservice node20 start
+# 5. Start webservice using the pre-built image
+toolforge webservice buildservice start
 
 # 6. Check logs
-toolforge webservice node20 logs
+toolforge webservice buildservice logs
 ```
 
 ### Updating
 
 ```bash
-cd ~/www/js && git pull
-toolforge webservice node20 restart
+# Push your changes to GitHub, then on Toolforge:
+toolforge build start https://github.com/kavryn/archiverua.git
+# Wait for ok(Succeeded)
+toolforge build show
+toolforge webservice buildservice restart
 ```
 
 ### Updating environment variables / Secrets
