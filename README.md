@@ -49,7 +49,7 @@ toolforge build start https://github.com/kavryn/archiverua.git
 toolforge build show
 
 # 5. Start webservice using the pre-built image
-toolforge webservice buildservice start
+toolforge webservice buildservice start --mount none
 
 # 6. Check logs
 toolforge webservice buildservice logs
@@ -62,7 +62,7 @@ toolforge webservice buildservice logs
 toolforge build start https://github.com/kavryn/archiverua.git
 # Wait for ok(Succeeded)
 toolforge build show
-toolforge webservice buildservice restart
+toolforge webservice buildservice restart --mount none
 ```
 
 ### Updating environment variables / Secrets
