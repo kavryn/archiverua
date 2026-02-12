@@ -140,9 +140,15 @@ export function isEntryValid(entry: FileEntry): boolean {
   );
 }
 
+const wikisourceNameCache = new Map<string, { name: string | null; exists: boolean }>();
+
 export async function fetchWikisourceName(
   pageTitle: string
 ): Promise<{ name: string | null; exists: boolean }> {
+  const cached = wikisourceNameCache.get(pageTitle);
+  if (cached) return cached;
   const res = await fetch(`/api/wikisource-name?title=${encodeURIComponent(pageTitle)}`);
-  return res.json();
+  const result = await res.json();
+  wikisourceNameCache.set(pageTitle, result);
+  return result;
 }

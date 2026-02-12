@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { makeEntry, isEntryValid, fetchWikisourceName, type FileEntry } from "@/types/upload-form";
+import { makeEntry, isEntryValid, fetchWikisourceName, emptyNameState, type FileEntry } from "@/types/upload-form";
 import { uploadFile } from "@/lib/upload";
+import type { Archive } from "@/lib/archives";
 
 export function useUploadForm() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -91,6 +92,53 @@ export function useUploadForm() {
     }
   }
 
+  async function handleArchiveChange(index: number, newArchive: Archive | null) {
+    const entry = fileStates[index];
+    updateEntry(index, { archive: newArchive });
+
+    if (!newArchive) {
+      updateEntry(index, { fondName: emptyNameState, opisName: emptyNameState, spravaName: emptyNameState });
+      return;
+    }
+
+    const fond = entry.fond.trim();
+    const opis = entry.opis.trim();
+    const sprava = entry.sprava.trim();
+
+    if (fond) {
+      const title = `Архів:${newArchive.abbr}/${fond}`;
+      if (entry.fondName.lastFetchedTitle !== title) {
+        updateEntry(index, { fondName: { ...emptyNameState, loading: true } });
+        try {
+          const r = await fetchWikisourceName(title);
+          updateEntry(index, { fondName: { value: "", fetched: r.name ?? "", exists: r.exists, loading: false, lastFetchedTitle: title } });
+        } catch { updateEntry(index, { fondName: emptyNameState }); }
+      }
+    }
+
+    if (fond && opis) {
+      const title = `Архів:${newArchive.abbr}/${fond}/${opis}`;
+      if (entry.opisName.lastFetchedTitle !== title) {
+        updateEntry(index, { opisName: { ...emptyNameState, loading: true } });
+        try {
+          const r = await fetchWikisourceName(title);
+          updateEntry(index, { opisName: { value: "", fetched: r.name ?? "", exists: r.exists, loading: false, lastFetchedTitle: title } });
+        } catch { updateEntry(index, { opisName: emptyNameState }); }
+      }
+    }
+
+    if (fond && opis && sprava) {
+      const title = `Архів:${newArchive.abbr}/${fond}/${opis}/${sprava}`;
+      if (entry.spravaName.lastFetchedTitle !== title) {
+        updateEntry(index, { spravaName: { ...emptyNameState, loading: true } });
+        try {
+          const r = await fetchWikisourceName(title);
+          updateEntry(index, { spravaName: { value: r.name ?? "", fetched: r.name ?? "", exists: r.exists, loading: false, lastFetchedTitle: title } });
+        } catch { updateEntry(index, { spravaName: emptyNameState }); }
+      }
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -138,6 +186,7 @@ export function useUploadForm() {
     handleFondBlur,
     handleOpisBlur,
     handleSpravaBlur,
+    handleArchiveChange,
     handleSubmit,
   };
 }

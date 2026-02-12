@@ -2,21 +2,19 @@ import ArchiveCombobox from "./ArchiveCombobox";
 import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
 import { emptyNameState, type FileEntry, buildAutoFileName, getEffectiveFileName } from "@/types/upload-form";
+import type { Archive } from "@/lib/archives";
 
 interface EntryCardProps {
   entry: FileEntry;
   inputClass: string;
   onUpdate: (patch: Partial<FileEntry>) => void;
+  onArchiveChange: (a: Archive | null) => void;
   onFondBlur: (value: string) => void;
   onOpisBlur: (value: string) => void;
   onSpravaBlur: (value: string) => void;
 }
 
-export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onOpisBlur, onSpravaBlur }: EntryCardProps) {
-  const fondEnabled = entry.archive !== null;
-  const opisEnabled = entry.fond.trim() !== "";
-  const spravaEnabled = entry.opis.trim() !== "";
-  const spravaNameEnabled = entry.sprava.trim() !== "";
+export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange, onFondBlur, onOpisBlur, onSpravaBlur }: EntryCardProps) {
 
   const dateState: DateState = {
     dateMode: entry.dateMode,
@@ -26,11 +24,10 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
     isRussianEmpire: entry.isRussianEmpire,
   };
 
-  const fondNameShown = entry.fondName.loading || entry.fondName.lastFetchedTitle !== "";
-  const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;
+  const fondNameWritable = !entry.fondName.loading && !entry.fondName.exists;
   const opisNameShown = entry.opisName.loading || entry.opisName.lastFetchedTitle !== "";
   const opisNameWritable = opisNameShown && !entry.opisName.loading && !entry.opisName.exists;
-  const spravaNameWritable = spravaNameEnabled && !entry.spravaName.loading;
+  const spravaNameWritable = !entry.spravaName.loading;
 
   const spravaNameValue = (entry.spravaName.value || entry.spravaName.fetched).trim();
   const fileNameEnabled =
@@ -58,19 +55,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
         </label>
         <ArchiveCombobox
           value={entry.archive}
-          onChange={(a) =>
-            onUpdate({
-              archive: a,
-              fond: "",
-              opis: "",
-              sprava: "",
-              dateFrom: "",
-              dateTo: "",
-              fondName: emptyNameState,
-              opisName: emptyNameState,
-              spravaName: emptyNameState,
-            })
-          }
+          onChange={(a) => onArchiveChange(a)}
           disabled={false}
         />
         <FieldError show={entry.submitted && entry.archive === null} />
@@ -85,24 +70,13 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
           <input
             type="text"
             value={entry.fond}
-            onChange={(e) =>
-              onUpdate({
-                fond: e.target.value,
-                opis: "",
-                sprava: "",
-                dateFrom: "",
-                dateTo: "",
-                fondName: emptyNameState,
-                opisName: emptyNameState,
-                spravaName: emptyNameState,
-              })
-            }
+            onChange={(e) => onUpdate({ fond: e.target.value })}
             onBlur={(e) => onFondBlur(e.target.value)}
-            disabled={!fondEnabled}
+            disabled={false}
             placeholder="напр. 201"
             className={inputClass}
           />
-          <FieldError show={entry.submitted && fondEnabled && entry.fond.trim() === ""} />
+          <FieldError show={entry.submitted && entry.fond.trim() === ""} />
         </div>
 
         <div className="flex-1">
@@ -112,22 +86,13 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
           <input
             type="text"
             value={entry.opis}
-            onChange={(e) =>
-              onUpdate({
-                opis: e.target.value,
-                sprava: "",
-                dateFrom: "",
-                dateTo: "",
-                opisName: emptyNameState,
-                spravaName: emptyNameState,
-              })
-            }
+            onChange={(e) => onUpdate({opis: e.target.value})}
             onBlur={(e) => onOpisBlur(e.target.value)}
-            disabled={!opisEnabled}
+            disabled={false}
             placeholder="напр. 1"
             className={inputClass}
           />
-          <FieldError show={entry.submitted && opisEnabled && entry.opis.trim() === ""} />
+          <FieldError show={entry.submitted && entry.opis.trim() === ""} />
         </div>
 
         <div className="flex-1">
@@ -137,84 +102,73 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
           <input
             type="text"
             value={entry.sprava}
-            onChange={(e) =>
-              onUpdate({
-                sprava: e.target.value,
-                dateFrom: "",
-                dateTo: "",
-                spravaName: emptyNameState,
-              })
-            }
+            onChange={(e) => onUpdate({ sprava: e.target.value })}
             onBlur={(e) => onSpravaBlur(e.target.value)}
-            disabled={!spravaEnabled}
+            disabled={false}
             placeholder="напр. 3350"
             className={inputClass}
           />
-          <FieldError show={entry.submitted && spravaEnabled && entry.sprava.trim() === ""} />
+          <FieldError show={entry.submitted && entry.sprava.trim() === ""} />
         </div>
       </div>
 
       {/* Name fields */}
       <div className="flex flex-col gap-2">
-        {fondNameShown && (
-          <div>
-            <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-              Назва фонду
-            </label>
-            <input
-              type="text"
-              disabled={entry.fondName.loading || entry.fondName.exists}
-              value={
-                entry.fondName.loading
-                  ? ""
-                  : entry.fondName.exists
-                  ? entry.fondName.fetched
-                  : entry.fondName.value
-              }
-              onChange={(e) =>
-                !entry.fondName.loading &&
-                !entry.fondName.exists &&
-                onUpdate({ fondName: { ...entry.fondName, value: e.target.value } })
-              }
-              placeholder={entry.fondName.loading ? "Завантаження…" : "Введіть назву фонду"}
-              className={inputClass}
-            />
-            <FieldError
-              show={
-                entry.submitted &&
-                fondNameWritable &&
-                !entry.fondName.loading &&
-                entry.fondName.value.trim() === ""
-              }
-            />
-          </div>
-        )}
+        <div>
+          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+            Назва фонду
+          </label>
+          <input
+            type="text"
+            disabled={entry.fondName.loading || entry.fondName.exists}
+            value={
+              entry.fondName.loading
+                ? ""
+                : entry.fondName.exists
+                ? entry.fondName.fetched
+                : entry.fondName.value
+            }
+            onChange={(e) =>
+              !entry.fondName.loading &&
+              !entry.fondName.exists &&
+              onUpdate({ fondName: { ...entry.fondName, value: e.target.value } })
+            }
+            placeholder={entry.fondName.loading ? "Завантаження…" : "Введіть назву фонду"}
+            className={inputClass}
+          />
+          <FieldError
+            show={
+              entry.submitted &&
+              fondNameWritable &&
+              !entry.fondName.loading &&
+              entry.fondName.value.trim() === ""
+            }
+          />
+        </div>
 
-        {opisNameShown && (
-          <div>
-            <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-              Назва опису <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
-            </label>
-            <input
-              type="text"
-              disabled={entry.opisName.loading || entry.opisName.exists}
-              value={
-                entry.opisName.loading
-                  ? ""
-                  : entry.opisName.exists
-                  ? entry.opisName.fetched
-                  : entry.opisName.value
-              }
-              onChange={(e) =>
-                !entry.opisName.loading &&
-                !entry.opisName.exists &&
-                onUpdate({ opisName: { ...entry.opisName, value: e.target.value } })
-              }
-              placeholder={entry.opisName.loading ? "Завантаження…" : "Введіть назву опису"}
-              className={inputClass}
-            />
-          </div>
-        )}
+        <div>
+          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+            Назва опису <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
+          </label>
+          <input
+            type="text"
+            disabled={entry.opisName.loading || entry.opisName.exists}
+            value={
+              entry.opisName.loading
+                ? ""
+                : entry.opisName.exists
+                ? entry.opisName.fetched
+                : entry.opisName.value
+            }
+            onChange={(e) =>
+              !entry.opisName.loading &&
+              !entry.opisName.exists &&
+              onUpdate({ opisName: { ...entry.opisName, value: e.target.value } })
+            }
+            placeholder={entry.opisName.loading ? "Завантаження…" : "Введіть назву опису"}
+            className={inputClass}
+          />
+        </div>
 
         <div>
           <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
@@ -222,15 +176,13 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
           </label>
           <input
             type="text"
-            disabled={!spravaNameEnabled || entry.spravaName.loading}
+            disabled={entry.spravaName.loading}
             value={entry.spravaName.loading ? "" : entry.spravaName.value}
             onChange={(e) =>
-              spravaNameEnabled &&
               !entry.spravaName.loading &&
               onUpdate({ spravaName: { ...entry.spravaName, value: e.target.value } })
             }
-            placeholder={entry.spravaName.loading ? "Завантаження…" : spravaNameEnabled ? "Введіть назву справи" :
-                "Спершу введіть архів, фонд, опис, справу"}
+            placeholder={entry.spravaName.loading ? "Завантаження…" : "Введіть назву справи"}
             className={inputClass}
           />
           <FieldError

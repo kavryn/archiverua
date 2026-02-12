@@ -23,6 +23,7 @@ export default function UploadForm() {
     handleFondBlur,
     handleOpisBlur,
     handleSpravaBlur,
+    handleArchiveChange,
     handleSubmit,
   } = useUploadForm();
 
@@ -58,6 +59,7 @@ export default function UploadForm() {
           entry={entry}
           inputClass={inputClass}
           onUpdate={(patch) => updateEntry(index, patch)}
+          onArchiveChange={(a) => handleArchiveChange(index, a)}
           onFondBlur={(value) => handleFondBlur(index, value)}
           onOpisBlur={(value) => handleOpisBlur(index, value)}
           onSpravaBlur={(value) => handleSpravaBlur(index, value)}
