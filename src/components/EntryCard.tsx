@@ -120,7 +120,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           </label>
           <input
             type="text"
-            disabled={entry.fondName.loading || entry.fondName.exists}
+            disabled={ entry.fondName.lastFetchedTitle === "" || entry.fondName.loading || entry.fondName.exists}
             value={
               entry.fondName.loading
                 ? ""
@@ -133,7 +133,9 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
               !entry.fondName.exists &&
               onUpdate({ fondName: { ...entry.fondName, value: e.target.value } })
             }
-            placeholder={entry.fondName.loading ? "Завантаження…" : "Введіть назву фонду"}
+            placeholder={entry.fondName.loading ? "Завантаження…" :
+                entry.fondName.lastFetchedTitle === "" ? "Автоматично. Спершу введіть архів та фонд." :
+                "Введіть назву фонду"}
             className={inputClass}
           />
           <FieldError
@@ -152,7 +154,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           </label>
           <input
             type="text"
-            disabled={entry.opisName.loading || entry.opisName.exists}
+            disabled={entry.opisName.lastFetchedTitle === "" || entry.opisName.loading || entry.opisName.exists}
             value={
               entry.opisName.loading
                 ? ""
@@ -165,7 +167,9 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
               !entry.opisName.exists &&
               onUpdate({ opisName: { ...entry.opisName, value: e.target.value } })
             }
-            placeholder={entry.opisName.loading ? "Завантаження…" : "Введіть назву опису"}
+            placeholder={entry.opisName.loading ? "Завантаження…" :
+                 entry.opisName.lastFetchedTitle === "" ? "Автоматично. Спершу введіть архів, фонд та опис." :
+                 "Введіть назву опису"}
             className={inputClass}
           />
         </div>
@@ -176,13 +180,10 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           </label>
           <input
             type="text"
-            disabled={entry.spravaName.loading}
-            value={entry.spravaName.loading ? "" : entry.spravaName.value}
-            onChange={(e) =>
-              !entry.spravaName.loading &&
-              onUpdate({ spravaName: { ...entry.spravaName, value: e.target.value } })
-            }
-            placeholder={entry.spravaName.loading ? "Завантаження…" : "Введіть назву справи"}
+            disabled={false}
+            value={entry.spravaName.value}
+            onChange={(e) => onUpdate({ spravaName: { ...entry.spravaName, value: e.target.value } })}
+            placeholder={"Введіть назву справи"}
             className={inputClass}
           />
           <FieldError
