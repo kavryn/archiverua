@@ -28,7 +28,7 @@ async function commitUpload(filekey: string, entry: FileEntry): Promise<string> 
   fd.append("sprava", entry.sprava);
   fd.append("dateFrom", entry.dateFrom);
   fd.append("dateTo", entry.dateTo);
-  fd.append("isArbitraryDate", String(entry.isArbitraryDate));
+  fd.append("isArbitraryDate", String(entry.dateMode === "other"));
   fd.append("isOver75Years", String(entry.isOver75Years));
   fd.append("isRussianEmpire", String(entry.isRussianEmpire));
   fd.append("spravaName", entry.spravaName.value || entry.spravaName.fetched);
@@ -49,7 +49,7 @@ function uploadSmallFile(entry: FileEntry): Promise<{ url?: string; duplicateUrl
   fd.append("sprava", entry.sprava);
   fd.append("dateFrom", entry.dateFrom);
   fd.append("dateTo", entry.dateTo);
-  fd.append("isArbitraryDate", String(entry.isArbitraryDate));
+  fd.append("isArbitraryDate", String(entry.dateMode === "other"));
   fd.append("isOver75Years", String(entry.isOver75Years));
   fd.append("isRussianEmpire", String(entry.isRussianEmpire));
   fd.append("spravaName", entry.spravaName.value || entry.spravaName.fetched);

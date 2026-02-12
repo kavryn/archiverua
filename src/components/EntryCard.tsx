@@ -16,12 +16,12 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
   const fondEnabled = entry.archive !== null;
   const opisEnabled = entry.fond.trim() !== "";
   const spravaEnabled = entry.opis.trim() !== "";
-  const dateEnabled = entry.sprava.trim() !== "";
+  const spravaNameEnabled = entry.sprava.trim() !== "";
 
   const dateState: DateState = {
+    dateMode: entry.dateMode,
     dateFrom: entry.dateFrom,
     dateTo: entry.dateTo,
-    isArbitraryDate: entry.isArbitraryDate,
     isOver75Years: entry.isOver75Years,
     isRussianEmpire: entry.isRussianEmpire,
   };
@@ -30,7 +30,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
   const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;
   const opisNameShown = entry.opisName.loading || entry.opisName.lastFetchedTitle !== "";
   const opisNameWritable = opisNameShown && !entry.opisName.loading && !entry.opisName.exists;
-  const spravaNameWritable = dateEnabled && !entry.spravaName.loading;
+  const spravaNameWritable = spravaNameEnabled && !entry.spravaName.loading;
 
   const spravaNameValue = (entry.spravaName.value || entry.spravaName.fetched).trim();
   const fileNameEnabled =
@@ -222,14 +222,15 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
           </label>
           <input
             type="text"
-            disabled={!dateEnabled || entry.spravaName.loading}
+            disabled={!spravaNameEnabled || entry.spravaName.loading}
             value={entry.spravaName.loading ? "" : entry.spravaName.value}
             onChange={(e) =>
-              dateEnabled &&
+              spravaNameEnabled &&
               !entry.spravaName.loading &&
               onUpdate({ spravaName: { ...entry.spravaName, value: e.target.value } })
             }
-            placeholder={entry.spravaName.loading ? "Завантаження…" : "Введіть назву справи"}
+            placeholder={entry.spravaName.loading ? "Завантаження…" : spravaNameEnabled ? "Введіть назву справи" :
+                "Спершу введіть архів, фонд, опис, справу"}
             className={inputClass}
           />
           <FieldError
@@ -240,25 +241,22 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
 
       {/* Dates */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Дати
-        </label>
         <DateFields
+          label="Дати"
           state={dateState}
           onChange={(patch) => onUpdate(patch)}
-          disabled={!dateEnabled}
+          disabled={false}
         />
         <FieldError
           show={
             entry.submitted &&
-            dateEnabled &&
             entry.dateFrom.trim() === "" &&
             entry.dateTo.trim() === ""
           }
           message="Вкажіть хоча б одну дату"
         />
         <FieldError
-          show={entry.submitted && dateEnabled && entry.isArbitraryDate && !entry.isOver75Years}
+          show={entry.submitted && entry.dateMode === "other" && !entry.isOver75Years}
           message="Підтвердіть, що справі більше 75 років"
         />
       </div>
