@@ -47,13 +47,13 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-      <h2 className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+      <h2 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
         {entry.file.name}
       </h2>
 
       {/* Archive */}
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
           Архів
         </label>
         <ArchiveCombobox
@@ -79,7 +79,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
       {/* Fond / Opis / Sprava */}
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
             Фонд
           </label>
           <input
@@ -106,7 +106,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
         </div>
 
         <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
             Опис
           </label>
           <input
@@ -131,7 +131,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
         </div>
 
         <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
             Справа
           </label>
           <input
@@ -158,7 +158,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
       <div className="flex flex-col gap-2">
         {fondNameShown && (
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
               Назва фонду
             </label>
             <input
@@ -192,7 +192,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
 
         {opisNameShown && (
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
               Назва опису <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
             </label>
             <input
@@ -217,7 +217,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
         )}
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
             Назва справи
           </label>
           <input
@@ -264,7 +264,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
       {/* Upload status */}
       {entry.status === "uploading" && entry.totalChunks > 0 && (
         <div className="flex flex-col gap-1">
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
+          <div className="text-base text-zinc-600 dark:text-zinc-400">
             Чанк {entry.currentChunk} з {entry.totalChunks} — {entry.uploadProgress}%
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
@@ -273,18 +273,18 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
               className="h-2 rounded-full bg-blue-600 transition-all duration-300"
             />
           </div>
-          <div className="text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="text-sm text-zinc-500 dark:text-zinc-400">
             {uploadedMB} МБ з {totalMB} МБ
           </div>
         </div>
       )}
 
       {entry.status === "uploading" && entry.totalChunks === 0 && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Завантаження…</p>
+        <p className="text-base text-zinc-600 dark:text-zinc-400">Завантаження…</p>
       )}
 
       {entry.status === "success" && (
-        <p className="text-sm text-green-700 dark:text-green-400">
+        <p className="text-base text-green-700 dark:text-green-400">
           Успішно!{" "}
           <a href={entry.resultUrl} target="_blank" rel="noopener noreferrer" className="underline">
             Переглянути файл
@@ -293,7 +293,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
       )}
 
       {entry.status === "duplicate" && (
-        <p className="text-sm text-yellow-700 dark:text-yellow-400">
+        <p className="text-base text-yellow-700 dark:text-yellow-400">
           Файл з таким вмістом вже існує у Вікісховищі.{" "}
           <a
             href={entry.duplicateUrl}
@@ -307,12 +307,12 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
       )}
 
       {entry.status === "error" && (
-        <p className="text-sm text-red-600 dark:text-red-400">{entry.errorMessage}</p>
+        <p className="text-base text-red-600 dark:text-red-400">{entry.errorMessage}</p>
       )}
 
       {/* Назва файлу */}
       <div>
-        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
           Назва файлу
         </label>
         <input

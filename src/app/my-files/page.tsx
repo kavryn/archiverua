@@ -39,10 +39,10 @@ export default async function MyFilesPage() {
       <AppHeader />
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-16 py-12">
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
+          <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
             Мої файли
           </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-base text-zinc-500 dark:text-zinc-400">
             Завантажено файлів: {contribs.length}
           </p>
         </div>
@@ -69,11 +69,11 @@ export default async function MyFilesPage() {
                     href={fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                    className="text-base text-blue-600 hover:underline dark:text-blue-400"
                   >
                     {filename}
                   </a>
-                  <span className="text-xs text-zinc-400 dark:text-zinc-500">{date}</span>
+                  <span className="text-sm text-zinc-400 dark:text-zinc-500">{date}</span>
                 </li>
               );
             })}

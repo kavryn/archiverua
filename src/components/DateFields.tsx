@@ -52,7 +52,7 @@ const MODE_LABELS: { mode: DateMode; label: string }[] = [
 ];
 
 const baseInputClass =
-  "w-full rounded-md border px-3 py-2 text-sm placeholder-zinc-400 focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
+  "w-full rounded-md border px-3 py-2 text-base placeholder-zinc-400 focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
 const normalInputClass = `${baseInputClass} border-zinc-300 bg-white text-zinc-900 focus:border-blue-500 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100`;
 const errorInputClass = `${baseInputClass} border-red-500 bg-white text-zinc-900 focus:border-red-500 focus:ring-red-500 dark:border-red-500 dark:bg-zinc-800 dark:text-zinc-100`;
 
@@ -73,7 +73,7 @@ function Switcher({
           type="button"
           onClick={() => onSelect(mode)}
           disabled={disabled}
-          className={`h-full px-3 text-sm transition-colors disabled:cursor-not-allowed ${
+          className={`h-full px-3 text-base transition-colors disabled:cursor-not-allowed ${
             current === mode
               ? "bg-blue-600 text-white"
               : "bg-white text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
@@ -101,13 +101,13 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
         {/* Labels row */}
         <div className="flex items-end">
           {label && (
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
+            <span className="text-base font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
           )}
         </div>
         {state.dateMode === "range" ? (
           <>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">Початкова</div>
-            <div className="text-xs text-zinc-500 dark:text-zinc-400">Кінцева</div>
+            <div className="text-sm text-zinc-500 dark:text-zinc-400">Початкова</div>
+            <div className="text-sm text-zinc-500 dark:text-zinc-400">Кінцева</div>
           </>
         ) : (
           <div className="col-span-2" />
@@ -147,11 +147,11 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-base text-red-600 dark:text-red-400">{error}</p>
       )}
 
       {state.dateMode === "other" && (
-        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+        <label className="flex items-center gap-2 text-base text-zinc-700 dark:text-zinc-300">
           <input
             type="checkbox"
             checked={state.isOver75Years}
@@ -164,7 +164,7 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
       )}
 
       {showRussianEmpire && (
-        <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+        <label className="flex items-center gap-2 text-base text-zinc-700 dark:text-zinc-300">
           <input
             type="checkbox"
             checked={state.isRussianEmpire}
