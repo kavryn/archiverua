@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { ARCHIVES } from "@/lib/archives";
-import { getCsrfToken, uploadFile, commitChunkedUpload, buildFilename, buildDescription, DuplicateFileError, getWikisourceCsrfToken, buildWikisourceDateStr, buildWikisourcePageContent, createWikisourcePage } from "@/lib/wikimedia";
+import { getCsrfToken, uploadFile, commitChunkedUpload, buildDescription, DuplicateFileError, getWikisourceCsrfToken, buildWikisourceDateStr, buildWikisourcePageContent, createWikisourcePage } from "@/lib/wikimedia";
 import { NextResponse } from "next/server";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -27,15 +27,12 @@ export async function POST(request: Request) {
   const isOver75Years = fd.get("isOver75Years") === "true";
   const isRussianEmpire = fd.get("isRussianEmpire") === "true";
   const spravaName = (fd.get("spravaName") as string | null) ?? "";
+  const filename = (fd.get("fileName") as string | null)?.trim();
 
-  const ext = commitOnly
-    ? (fd.get("ext") as string | null)
-    : (file?.name.split(".").pop() ?? "jpg");
-
-  if (!archiveAbbr || !fond || !opis || !sprava) {
+  if (!archiveAbbr || !fond || !opis || !sprava || !filename) {
     return NextResponse.json({ error: "Відсутні обов'язкові поля" }, { status: 400 });
   }
-  if (commitOnly ? !filekey || !ext : !file) {
+  if (commitOnly ? !filekey : !file) {
     return NextResponse.json({ error: "Відсутні обов'язкові поля" }, { status: 400 });
   }
 
@@ -56,7 +53,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Архів не знайдено" }, { status: 400 });
   }
 
-  const filename = buildFilename(archiveAbbr, fond, opis, sprava, ext!);
   const description = buildDescription({
     archiveName: archive.name,
     abbr: archiveAbbr,

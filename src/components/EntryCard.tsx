@@ -1,7 +1,7 @@
 import ArchiveCombobox from "./ArchiveCombobox";
 import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
-import { emptyNameState, type FileEntry } from "@/types/upload-form";
+import { emptyNameState, type FileEntry, buildAutoFileName, getEffectiveFileName } from "@/types/upload-form";
 
 interface EntryCardProps {
   entry: FileEntry;
@@ -31,6 +31,16 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
   const opisNameShown = entry.opisName.loading || entry.opisName.lastFetchedTitle !== "";
   const opisNameWritable = opisNameShown && !entry.opisName.loading && !entry.opisName.exists;
   const spravaNameWritable = dateEnabled && !entry.spravaName.loading;
+
+  const spravaNameValue = (entry.spravaName.value || entry.spravaName.fetched).trim();
+  const fileNameEnabled =
+    entry.archive !== null &&
+    entry.fond.trim() !== "" &&
+    entry.opis.trim() !== "" &&
+    entry.sprava.trim() !== "" &&
+    spravaNameValue !== "";
+  const autoFileName = buildAutoFileName(entry);
+  const effectiveFileName = getEffectiveFileName(entry);
 
   const uploadedMB = (entry.uploadedBytes / (1024 * 1024)).toFixed(1);
   const totalMB = (entry.totalBytes / (1024 * 1024)).toFixed(1);
@@ -301,6 +311,31 @@ export default function EntryCard({ entry, inputClass, onUpdate, onFondBlur, onO
       {entry.status === "error" && (
         <p className="text-sm text-red-600 dark:text-red-400">{entry.errorMessage}</p>
       )}
+
+      {/* Назва файлу */}
+      <div>
+        <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Назва файлу
+        </label>
+        <input
+          type="text"
+          disabled={!fileNameEnabled}
+          value={fileNameEnabled ? (entry.fileNameEdited ? entry.fileName : autoFileName) : ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            onUpdate({ fileName: val, fileNameEdited: val !== "" });
+          }}
+          placeholder={
+            fileNameEnabled
+              ? "Назва файлу для завантаження"
+              : "Спершу введіть архів, фонд, опис, справу та назву справи"
+          }
+          className={inputClass}
+        />
+        <FieldError
+          show={entry.submitted && fileNameEnabled && effectiveFileName.trim() === ""}
+        />
+      </div>
     </div>
   );
 }

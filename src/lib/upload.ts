@@ -1,4 +1,4 @@
-import { CHUNK_SIZE, LARGE_FILE_THRESHOLD, MAX_CHUNK_RETRIES, type FileEntry } from "@/types/upload-form";
+import { CHUNK_SIZE, LARGE_FILE_THRESHOLD, MAX_CHUNK_RETRIES, type FileEntry, getEffectiveFileName } from "@/types/upload-form";
 
 async function uploadChunkWithRetry(
   chunkFd: FormData,
@@ -19,11 +19,9 @@ async function uploadChunkWithRetry(
 }
 
 async function commitUpload(filekey: string, entry: FileEntry): Promise<string> {
-  const ext = entry.file.name.split(".").pop() ?? "pdf";
   const fd = new FormData();
   fd.append("commitOnly", "true");
   fd.append("filekey", filekey);
-  fd.append("ext", ext);
   fd.append("archiveAbbr", entry.archive!.abbr);
   fd.append("fond", entry.fond);
   fd.append("opis", entry.opis);
@@ -34,6 +32,7 @@ async function commitUpload(filekey: string, entry: FileEntry): Promise<string> 
   fd.append("isOver75Years", String(entry.isOver75Years));
   fd.append("isRussianEmpire", String(entry.isRussianEmpire));
   fd.append("spravaName", entry.spravaName.value || entry.spravaName.fetched);
+  fd.append("fileName", getEffectiveFileName(entry));
   const res = await fetch("/api/upload", { method: "POST", body: fd });
   const data = await res.json();
   if (data.duplicateUrl) return `__duplicate__${data.duplicateUrl}`;
@@ -54,6 +53,7 @@ function uploadSmallFile(entry: FileEntry): Promise<{ url?: string; duplicateUrl
   fd.append("isOver75Years", String(entry.isOver75Years));
   fd.append("isRussianEmpire", String(entry.isRussianEmpire));
   fd.append("spravaName", entry.spravaName.value || entry.spravaName.fetched);
+  fd.append("fileName", getEffectiveFileName(entry));
   return fetch("/api/upload", { method: "POST", body: fd }).then((res) => res.json());
 }
 

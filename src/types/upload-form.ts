@@ -35,6 +35,8 @@ export interface FileEntry {
   fondName: NameFieldState;
   opisName: NameFieldState;
   spravaName: NameFieldState;
+  fileName: string;
+  fileNameEdited: boolean;
   status: "idle" | "uploading" | "success" | "error" | "duplicate";
   errorMessage: string;
   resultUrl: string;
@@ -62,6 +64,8 @@ export function makeEntry(file: File): FileEntry {
     fondName: emptyNameState,
     opisName: emptyNameState,
     spravaName: emptyNameState,
+    fileName: "",
+    fileNameEdited: false,
     status: "idle",
     errorMessage: "",
     resultUrl: "",
@@ -73,6 +77,22 @@ export function makeEntry(file: File): FileEntry {
     totalChunks: 0,
     submitted: false,
   };
+}
+
+export function buildAutoFileName(entry: FileEntry): string {
+  if (!entry.archive || !entry.fond || !entry.opis || !entry.sprava) return "";
+  const ext = entry.file.name.split(".").pop() ?? "pdf";
+  const spravaName = (entry.spravaName.value || entry.spravaName.fetched).trim();
+  const prefix = `${entry.archive.abbr} ${entry.fond}-${entry.opis}-${entry.sprava}. `;
+  const suffix = `.${ext}`;
+  const maxNameLen = 75 - prefix.length - suffix.length;
+  const truncated = spravaName.slice(0, Math.max(0, maxNameLen));
+  return `${prefix}${truncated}${suffix}`;
+}
+
+export function getEffectiveFileName(entry: FileEntry): string {
+  if (entry.fileNameEdited && entry.fileName.trim() !== "") return entry.fileName;
+  return buildAutoFileName(entry);
 }
 
 export function isEntryValid(entry: FileEntry): boolean {
@@ -98,6 +118,14 @@ export function isEntryValid(entry: FileEntry): boolean {
   const spravaNameWritable = dateEnabled && !entry.spravaName.loading;
   const spravaNameEmpty = spravaNameWritable && entry.spravaName.value.trim() === "";
 
+  const fileNameEnabled =
+    entry.archive !== null &&
+    entry.fond.trim() !== "" &&
+    entry.opis.trim() !== "" &&
+    entry.sprava.trim() !== "" &&
+    (entry.spravaName.value || entry.spravaName.fetched).trim() !== "";
+  const fileNameEmpty = fileNameEnabled && getEffectiveFileName(entry).trim() === "";
+
   return (
     entry.archive !== null &&
     entry.fond.trim() !== "" &&
@@ -105,7 +133,8 @@ export function isEntryValid(entry: FileEntry): boolean {
     entry.sprava.trim() !== "" &&
     datesValid &&
     !fondNameEmpty &&
-    !spravaNameEmpty
+    !spravaNameEmpty &&
+    !fileNameEmpty
   );
 }
 
