@@ -40,7 +40,11 @@ export function useUploadForm() {
   // Per-entry blur handlers
   async function handleFondBlur(index: number, value: string) {
     const entry = fileStates[index];
-    if (!entry.archive || !value.trim()) return;
+    if (!entry.archive) return;
+    if (!value.trim()) {
+      updateEntry(index, { fondName: emptyNameState, opisName: emptyNameState, spravaName: emptyNameState });
+      return;
+    }
     const title = `Архів:${entry.archive.abbr}/${value.trim()}`;
     if (entry.fondName.lastFetchedTitle === title) return;
     updateEntry(index, { fondName: { ...entry.fondName, loading: true } });
@@ -58,7 +62,11 @@ export function useUploadForm() {
 
   async function handleOpisBlur(index: number, value: string) {
     const entry = fileStates[index];
-    if (!entry.archive || !entry.fond.trim() || !value.trim()) return;
+    if (!entry.archive || !entry.fond.trim()) return;
+    if (!value.trim()) {
+      updateEntry(index, { opisName: emptyNameState, spravaName: emptyNameState });
+      return;
+    }
     const title = `Архів:${entry.archive.abbr}/${entry.fond.trim()}/${value.trim()}`;
     if (entry.opisName.lastFetchedTitle === title) return;
     updateEntry(index, { opisName: { ...entry.opisName, loading: true } });
@@ -76,7 +84,11 @@ export function useUploadForm() {
 
   async function handleSpravaBlur(index: number, value: string) {
     const entry = fileStates[index];
-    if (!entry.archive || !entry.fond.trim() || !entry.opis.trim() || !value.trim()) return;
+    if (!entry.archive || !entry.fond.trim() || !entry.opis.trim()) return;
+    if (!value.trim()) {
+      updateEntry(index, { spravaName: emptyNameState });
+      return;
+    }
     const title = `Архів:${entry.archive.abbr}/${entry.fond.trim()}/${entry.opis.trim()}/${value.trim()}`;
     if (entry.spravaName.lastFetchedTitle === title) return;
     updateEntry(index, { spravaName: { ...entry.spravaName, loading: true } });
