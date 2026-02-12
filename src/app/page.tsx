@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import AppHeader from "@/components/AppHeader";
+import AuthButton from "@/components/AuthButton";
 import UploadForm from "@/components/UploadForm";
 
 export default async function Home() {
