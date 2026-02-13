@@ -31,7 +31,7 @@ async function commitUpload(filekey: string, entry: FileEntry): Promise<string> 
   fd.append("isArbitraryDate", String(entry.dateMode === "other"));
   fd.append("isOver75Years", String(entry.isOver75Years));
   fd.append("isRussianEmpire", String(entry.isRussianEmpire));
-  fd.append("spravaName", entry.spravaName.value || entry.spravaName.fetched);
+  fd.append("spravaName", entry.spravaName);
   fd.append("fileName", getEffectiveFileName(entry));
   const res = await fetch("/api/upload", { method: "POST", body: fd });
   const data = await res.json();
@@ -52,7 +52,7 @@ function uploadSmallFile(entry: FileEntry): Promise<{ url?: string; duplicateUrl
   fd.append("isArbitraryDate", String(entry.dateMode === "other"));
   fd.append("isOver75Years", String(entry.isOver75Years));
   fd.append("isRussianEmpire", String(entry.isRussianEmpire));
-  fd.append("spravaName", entry.spravaName.value || entry.spravaName.fetched);
+  fd.append("spravaName", entry.spravaName);
   fd.append("fileName", getEffectiveFileName(entry));
   return fetch("/api/upload", { method: "POST", body: fd }).then((res) => res.json());
 }

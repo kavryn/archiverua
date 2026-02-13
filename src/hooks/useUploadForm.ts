@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { makeEntry, isEntryValid, fetchWikisourceName, emptyNameState, type FileEntry } from "@/types/upload-form";
+import { makeEntry, isEntryValid, fetchWikisourceName, emptyNameState, emptySpravaWikisource, type FileEntry } from "@/types/upload-form";
 import { uploadFile } from "@/lib/upload";
 import type { Archive } from "@/lib/archives";
 
@@ -42,7 +42,7 @@ export function useUploadForm() {
     const entry = fileStates[index];
     if (!entry.archive) return;
     if (!value.trim()) {
-      updateEntry(index, { fondName: emptyNameState, opisName: emptyNameState, spravaName: emptyNameState });
+      updateEntry(index, { fondName: emptyNameState, opisName: emptyNameState, spravaWikisource: emptySpravaWikisource });
       return;
     }
     const title = `Архів:${entry.archive.abbr}/${value.trim()}`;
@@ -64,7 +64,7 @@ export function useUploadForm() {
     const entry = fileStates[index];
     if (!entry.archive || !entry.fond.trim()) return;
     if (!value.trim()) {
-      updateEntry(index, { opisName: emptyNameState, spravaName: emptyNameState });
+      updateEntry(index, { opisName: emptyNameState, spravaWikisource: emptySpravaWikisource });
       return;
     }
     const title = `Архів:${entry.archive.abbr}/${entry.fond.trim()}/${value.trim()}`;
@@ -86,20 +86,20 @@ export function useUploadForm() {
     const entry = fileStates[index];
     if (!entry.archive || !entry.fond.trim() || !entry.opis.trim()) return;
     if (!value.trim()) {
-      updateEntry(index, { spravaName: emptyNameState });
+      updateEntry(index, { spravaWikisource: emptySpravaWikisource });
       return;
     }
     const title = `Архів:${entry.archive.abbr}/${entry.fond.trim()}/${entry.opis.trim()}/${value.trim()}`;
-    if (entry.spravaName.lastFetchedTitle === title) return;
-    updateEntry(index, { spravaName: { ...entry.spravaName, loading: true } });
+    if (entry.spravaWikisource.lastFetchedTitle === title) return;
+    updateEntry(index, { spravaWikisource: { ...entry.spravaWikisource, loading: true } });
     try {
       const result = await fetchWikisourceName(title);
       updateEntry(index, {
-        spravaName: { value: result.name ?? "", fetched: result.name ?? "", exists: result.exists, loading: false, lastFetchedTitle: title },
+        spravaWikisource: { name: result.name, exists: result.exists, loading: false, lastFetchedTitle: title },
       });
     } catch {
       setFileStates((prev) =>
-        prev.map((e, i) => i === index ? { ...e, spravaName: { ...e.spravaName, loading: false } } : e)
+        prev.map((e, i) => i === index ? { ...e, spravaWikisource: { ...e.spravaWikisource, loading: false } } : e)
       );
     }
   }
@@ -109,7 +109,7 @@ export function useUploadForm() {
     updateEntry(index, { archive: newArchive });
 
     if (!newArchive) {
-      updateEntry(index, { fondName: emptyNameState, opisName: emptyNameState, spravaName: emptyNameState });
+      updateEntry(index, { fondName: emptyNameState, opisName: emptyNameState, spravaWikisource: emptySpravaWikisource });
       return;
     }
 
@@ -141,12 +141,12 @@ export function useUploadForm() {
 
     if (fond && opis && sprava) {
       const title = `Архів:${newArchive.abbr}/${fond}/${opis}/${sprava}`;
-      if (entry.spravaName.lastFetchedTitle !== title) {
-        updateEntry(index, { spravaName: { ...emptyNameState, loading: true } });
+      if (entry.spravaWikisource.lastFetchedTitle !== title) {
+        updateEntry(index, { spravaWikisource: { ...emptySpravaWikisource, loading: true } });
         try {
           const r = await fetchWikisourceName(title);
-          updateEntry(index, { spravaName: { value: r.name ?? "", fetched: r.name ?? "", exists: r.exists, loading: false, lastFetchedTitle: title } });
-        } catch { updateEntry(index, { spravaName: emptyNameState }); }
+          updateEntry(index, { spravaWikisource: { name: r.name, exists: r.exists, loading: false, lastFetchedTitle: title } });
+        } catch { updateEntry(index, { spravaWikisource: emptySpravaWikisource }); }
       }
     }
   }

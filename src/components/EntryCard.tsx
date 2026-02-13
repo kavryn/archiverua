@@ -1,7 +1,7 @@
 import ArchiveCombobox from "./ArchiveCombobox";
 import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
-import { emptyNameState, type FileEntry, buildAutoFileName, getEffectiveFileName } from "@/types/upload-form";
+import { type FileEntry, buildAutoFileName, getEffectiveFileName } from "@/types/upload-form";
 import type { Archive } from "@/lib/archives";
 
 interface EntryCardProps {
@@ -27,15 +27,17 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
   const fondNameWritable = !entry.fondName.loading && !entry.fondName.exists;
   const opisNameShown = entry.opisName.loading || entry.opisName.lastFetchedTitle !== "";
   const opisNameWritable = opisNameShown && !entry.opisName.loading && !entry.opisName.exists;
-  const spravaNameWritable = !entry.spravaName.loading;
 
-  const spravaNameValue = (entry.spravaName.value || entry.spravaName.fetched).trim();
+  const spravaWikisourceUrl = entry.spravaWikisource.lastFetchedTitle
+    ? `https://uk.wikisource.org/wiki/${encodeURIComponent(entry.spravaWikisource.lastFetchedTitle)}`
+    : "";
+
   const fileNameEnabled =
     entry.archive !== null &&
     entry.fond.trim() !== "" &&
     entry.opis.trim() !== "" &&
     entry.sprava.trim() !== "" &&
-    spravaNameValue !== "";
+    entry.spravaName.trim() !== "";
   const autoFileName = buildAutoFileName(entry);
   const effectiveFileName = getEffectiveFileName(entry);
 
@@ -114,6 +116,14 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
 
       {/* Name fields */}
       <div className="flex flex-col gap-2">
+        {entry.spravaWikisource.exists && spravaWikisourceUrl && (
+          <p className="text-base text-blue-700 dark:text-blue-400">
+            Така справа вже існує у Вікіджерелах, але ви можете завантажити свою версію.{" "}
+            <a href={spravaWikisourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              Переглянути справу
+            </a>
+          </p>
+        )}
         <div>
           <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
             Назва фонду
@@ -181,13 +191,13 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           <input
             type="text"
             disabled={false}
-            value={entry.spravaName.value}
-            onChange={(e) => onUpdate({ spravaName: { ...entry.spravaName, value: e.target.value } })}
+            value={entry.spravaName}
+            onChange={(e) => onUpdate({ spravaName: e.target.value })}
             placeholder={"Введіть назву справи"}
             className={inputClass}
           />
           <FieldError
-            show={entry.submitted && spravaNameWritable && entry.spravaName.value.trim() === ""}
+            show={entry.submitted && entry.spravaName.trim() === ""}
           />
         </div>
       </div>

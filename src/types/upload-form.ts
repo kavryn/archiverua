@@ -21,6 +21,20 @@ export const emptyNameState: NameFieldState = {
   lastFetchedTitle: "",
 };
 
+export interface SpravaWikisourceState {
+  name: string | null;
+  exists: boolean;
+  loading: boolean;
+  lastFetchedTitle: string;
+}
+
+export const emptySpravaWikisource: SpravaWikisourceState = {
+  name: null,
+  exists: false,
+  loading: false,
+  lastFetchedTitle: "",
+};
+
 export interface FileEntry {
   file: File;
   archive: Archive | null;
@@ -34,7 +48,8 @@ export interface FileEntry {
   isRussianEmpire: boolean;
   fondName: NameFieldState;
   opisName: NameFieldState;
-  spravaName: NameFieldState;
+  spravaName: string;
+  spravaWikisource: SpravaWikisourceState;
   fileName: string;
   fileNameEdited: boolean;
   status: "idle" | "uploading" | "success" | "error" | "duplicate";
@@ -63,7 +78,8 @@ export function makeEntry(file: File): FileEntry {
     isRussianEmpire: false,
     fondName: emptyNameState,
     opisName: emptyNameState,
-    spravaName: emptyNameState,
+    spravaName: "",
+    spravaWikisource: emptySpravaWikisource,
     fileName: "",
     fileNameEdited: false,
     status: "idle",
@@ -82,7 +98,7 @@ export function makeEntry(file: File): FileEntry {
 export function buildAutoFileName(entry: FileEntry): string {
   if (!entry.archive || !entry.fond || !entry.opis || !entry.sprava) return "";
   const ext = entry.file.name.split(".").pop() ?? "pdf";
-  const spravaName = (entry.spravaName.value || entry.spravaName.fetched).trim();
+  const spravaName = entry.spravaName.trim();
   const prefix = `${entry.archive.abbr} ${entry.fond}-${entry.opis}-${entry.sprava}. `;
   const suffix = `.${ext}`;
   const maxNameLen = 75 - prefix.length - suffix.length;
@@ -117,15 +133,14 @@ export function isEntryValid(entry: FileEntry): boolean {
   const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;
   const fondNameEmpty = fondNameWritable && entry.fondName.value.trim() === "";
 
-  const spravaNameWritable = dateEnabled && !entry.spravaName.loading;
-  const spravaNameEmpty = spravaNameWritable && entry.spravaName.value.trim() === "";
+  const spravaNameEmpty = dateEnabled && entry.spravaName.trim() === "";
 
   const fileNameEnabled =
     entry.archive !== null &&
     entry.fond.trim() !== "" &&
     entry.opis.trim() !== "" &&
     entry.sprava.trim() !== "" &&
-    (entry.spravaName.value || entry.spravaName.fetched).trim() !== "";
+    entry.spravaName.trim() !== "";
   const fileNameEmpty = fileNameEnabled && getEffectiveFileName(entry).trim() === "";
 
   return (
