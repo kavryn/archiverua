@@ -230,6 +230,7 @@ export interface DescriptionParams {
   dateTo: string;
   isArbitraryDate: boolean;
   isRussianEmpire: boolean;
+  author?: string;
 }
 
 export async function getWikisourceCsrfToken(accessToken: string): Promise<string> {
@@ -328,9 +329,7 @@ export function buildDescription(params: DescriptionParams): string {
 |description={{uk|1=Документ з ${source}}}
 |date=${dateStr}
 |source=${source}
-|author=Невідомо
-|permission=
-|other versions=
+|author=${params.author ? params.author : "{{author|unknown}}"}
 }}
 
 =={{int:license-header}}==

@@ -49,6 +49,7 @@ export interface FileEntry {
   fondName: NameFieldState;
   opisName: NameFieldState;
   spravaName: string;
+  author: string;
   spravaWikisource: SpravaWikisourceState;
   fileName: string;
   fileNameEdited: boolean;
@@ -79,6 +80,7 @@ export function makeEntry(file: File): FileEntry {
     fondName: emptyNameState,
     opisName: emptyNameState,
     spravaName: "",
+    author: "",
     spravaWikisource: emptySpravaWikisource,
     fileName: "",
     fileNameEdited: false,

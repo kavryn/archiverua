@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   const isOver75Years = fd.get("isOver75Years") === "true";
   const isRussianEmpire = fd.get("isRussianEmpire") === "true";
   const spravaName = (fd.get("spravaName") as string | null) ?? "";
+  const author = (fd.get("author") as string | null) ?? "";
   const filename = (fd.get("fileName") as string | null)?.trim();
 
   if (!archiveAbbr || !fond || !opis || !sprava || !filename) {
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
     dateTo,
     isArbitraryDate,
     isRussianEmpire,
+    author,
   });
   const comment = `Завантаження через Вікіархіватор: ${archive.name}, Ф. ${fond}, Оп. ${opis}, Спр. ${sprava}`;
 

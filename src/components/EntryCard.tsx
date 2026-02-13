@@ -193,11 +193,23 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             disabled={false}
             value={entry.spravaName}
             onChange={(e) => onUpdate({ spravaName: e.target.value })}
-            placeholder={"Введіть назву справи"}
+            placeholder={"Офіційна назва справи"}
             className={inputClass}
           />
           <FieldError
             show={entry.submitted && entry.spravaName.trim() === ""}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+            Автор <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
+          </label>
+          <input
+            type="text"
+            value={entry.author}
+            onChange={(e) => onUpdate({ author: e.target.value })}
+            placeholder="напр. Греко-католицька митрополича консисторія"
+            className={inputClass}
           />
         </div>
       </div>
