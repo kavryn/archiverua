@@ -96,6 +96,16 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateState.dateFrom, dateState.dateTo, dateState.dateMode]);
 
+  useEffect(() => {
+    if (!isMounted.current) return;
+    const available = new Set(getAvailableOptions(endYear, dateState.dateMode, author).map((o) => o.value));
+    const filtered = value.filter((v) => available.has(v));
+    if (filtered.length !== value.length) {
+      onChange(filtered);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [author]);
+
   const hasDate =
     dateState.dateMode === "other"
       ? dateState.dateFrom.trim() !== ""
