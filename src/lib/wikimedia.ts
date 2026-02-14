@@ -223,6 +223,7 @@ export function buildFilename(
 export interface DescriptionParams {
   archiveName: string;
   abbr: string;
+  category: string;
   fond: string;
   opis: string;
   sprava: string;
@@ -330,6 +331,6 @@ export function buildDescription(params: DescriptionParams): string {
 =={{int:license-header}}==
 ${params.license}
 
-[[Category:Documents from Ukrainian archives]]
+[[Category:${params.category}]]
 `;
 }

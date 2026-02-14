@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   const description = buildDescription({
     archiveName: archive.name,
     abbr: archiveAbbr,
+    category: archive.category,
     fond,
     opis,
     sprava,
