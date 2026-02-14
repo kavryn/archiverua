@@ -45,9 +45,11 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-      <h2 className="truncate text-base font-semibold text-zinc-900 dark:text-zinc-100">
-        {entry.file.name}
-      </h2>
+      <div className="-mx-4 -mt-4 rounded-t-lg bg-zinc-600 px-4 py-3">
+         <div className="truncate font-mono text-base font-semibold text-white">
+           {entry.file.name}
+         </div>
+       </div>
 
       {/* Archive */}
       <div>
@@ -199,18 +201,6 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             show={entry.submitted && entry.spravaName.trim() === ""}
           />
         </div>
-        <div>
-          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-            Автор <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
-          </label>
-          <input
-            type="text"
-            value={entry.author}
-            onChange={(e) => onUpdate({ author: e.target.value })}
-            placeholder="напр. Греко-католицька митрополича консисторія"
-            className={inputClass}
-          />
-        </div>
       </div>
 
       {/* Dates */}
@@ -228,6 +218,19 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             entry.dateTo.trim() === ""
           }
           message="Вкажіть хоча б одну дату"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+          Автор <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
+        </label>
+        <input
+          type="text"
+          value={entry.author}
+          onChange={(e) => onUpdate({ author: e.target.value })}
+          placeholder="напр. Греко-католицька митрополича консисторія"
+          className={inputClass}
         />
       </div>
 
