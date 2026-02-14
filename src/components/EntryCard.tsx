@@ -53,9 +53,6 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
 
       {/* Archive */}
       <div>
-        <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-          Архів
-        </label>
         <ArchiveCombobox
           value={entry.archive}
           onChange={(a) => onArchiveChange(a)}
@@ -67,48 +64,39 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
       {/* Fond / Opis / Sprava */}
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-            Фонд
-          </label>
           <input
             type="text"
             value={entry.fond}
             onChange={(e) => onUpdate({ fond: e.target.value })}
             onBlur={(e) => onFondBlur(e.target.value)}
             disabled={false}
-            placeholder="напр. 201"
+            placeholder="Фонд"
             className={inputClass}
           />
           <FieldError show={entry.submitted && entry.fond.trim() === ""} />
         </div>
 
         <div className="flex-1">
-          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-            Опис
-          </label>
           <input
             type="text"
             value={entry.opis}
             onChange={(e) => onUpdate({opis: e.target.value})}
             onBlur={(e) => onOpisBlur(e.target.value)}
             disabled={false}
-            placeholder="напр. 1"
+            placeholder="Опис"
             className={inputClass}
           />
           <FieldError show={entry.submitted && entry.opis.trim() === ""} />
         </div>
 
         <div className="flex-1">
-          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-            Справа
-          </label>
           <input
             type="text"
             value={entry.sprava}
             onChange={(e) => onUpdate({ sprava: e.target.value })}
             onBlur={(e) => onSpravaBlur(e.target.value)}
             disabled={false}
-            placeholder="напр. 3350"
+            placeholder="Справа"
             className={inputClass}
           />
           <FieldError show={entry.submitted && entry.sprava.trim() === ""} />
