@@ -22,6 +22,9 @@ export default async function Home() {
       <main className="flex w-full max-w-3xl flex-col gap-8 px-16 py-32">
         <h1 className="text-4xl font-semibold tracking-tight text-black dark:text-zinc-50">
           Вікіархіватор
+          <span className="ml-1.5 inline-block align-super rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+            beta
+          </span>
         </h1>
         <p className="text-xl leading-8 text-zinc-600 dark:text-zinc-400">
           Найлегший спосіб опублікувати справи з українських архівів на Wikimedia Commons.
