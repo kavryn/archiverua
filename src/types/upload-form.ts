@@ -1,5 +1,5 @@
 import type { Archive } from "@/lib/archives";
-import { getDateError, type DateMode, type DateState } from "@/components/DateFields";
+import { type DateMode } from "@/components/DateFields";
 
 
 export const CHUNK_SIZE = 20 * 1024 * 1024;
@@ -113,16 +113,9 @@ export function getEffectiveFileName(entry: FileEntry): string {
 }
 
 export function isEntryValid(entry: FileEntry): boolean {
-  const dateState: DateState = {
-    dateMode: entry.dateMode,
-    dateFrom: entry.dateFrom,
-    dateTo: entry.dateTo,
-  };
-  const dateError = getDateError(dateState);
   const dateEnabled = entry.sprava.trim() !== "";
   const datesValid =
     dateEnabled &&
-    !dateError &&
     (entry.dateMode === "single"
       ? entry.dateFrom.trim() !== ""
       : entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "") &&

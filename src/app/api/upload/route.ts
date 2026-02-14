@@ -3,9 +3,6 @@ import { ARCHIVES } from "@/lib/archives";
 import { getCsrfToken, uploadFile, commitChunkedUpload, buildDescription, DuplicateFileError, getWikisourceCsrfToken, buildWikisourceDateStr, buildWikisourcePageContent, createWikisourcePage } from "@/lib/wikimedia";
 import { NextResponse } from "next/server";
 
-const CURRENT_YEAR = new Date().getFullYear();
-const THRESHOLD_75 = CURRENT_YEAR - 75;
-
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.accessToken) {
@@ -38,16 +35,6 @@ export async function POST(request: Request) {
 
   if (!license.trim()) {
     return NextResponse.json({ error: "Оберіть ліцензію" }, { status: 400 });
-  }
-
-  if (!isArbitraryDate) {
-    const match = dateTo.match(/\d{4}/);
-    if (match && parseInt(match[0], 10) > THRESHOLD_75) {
-      return NextResponse.json(
-        { error: `Документи молодші за ${THRESHOLD_75} р. не можна публікувати на Commons` },
-        { status: 400 }
-      );
-    }
   }
 
   const archive = ARCHIVES.find((a) => a.abbr === archiveAbbr);

@@ -1,8 +1,5 @@
 "use client";
 
-const CURRENT_YEAR = new Date().getFullYear();
-const THRESHOLD_75 = CURRENT_YEAR - 75;
-
 export type DateMode = "single" | "range" | "other";
 
 export interface DateState {
@@ -25,16 +22,6 @@ export function getEndYear(state: DateState): number | null {
   return parseInt(match[0], 10);
 }
 
-export function getDateError(state: DateState): string | null {
-  if (state.dateMode === "other") return null;
-  const endYear = getEndYear(state);
-  if (endYear === null) return null;
-  if (endYear > THRESHOLD_75) {
-    return `Документи молодші за ${THRESHOLD_75} р. не можна публікувати на Commons`;
-  }
-  return null;
-}
-
 
 const MODE_LABELS: { mode: DateMode; label: string }[] = [
   { mode: "single", label: "Одна дата" },
@@ -45,7 +32,6 @@ const MODE_LABELS: { mode: DateMode; label: string }[] = [
 const baseInputClass =
   "w-full rounded-md border px-3 py-2 text-base placeholder-zinc-400 focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
 const normalInputClass = `${baseInputClass} border-zinc-300 bg-white text-zinc-900 focus:border-blue-500 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100`;
-const errorInputClass = `${baseInputClass} border-red-500 bg-white text-zinc-900 focus:border-red-500 focus:ring-red-500 dark:border-red-500 dark:bg-zinc-800 dark:text-zinc-100`;
 
 function Switcher({
   current,
@@ -78,7 +64,6 @@ function Switcher({
 }
 
 export default function DateFields({ state, onChange, disabled, label }: Props) {
-  const error = getDateError(state);
 
   function handleModeChange(mode: DateMode) {
     onChange({ dateMode: mode, dateFrom: "", dateTo: "" });
@@ -121,7 +106,7 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
               onChange={(e) => onChange({ dateTo: e.target.value })}
               disabled={disabled}
               placeholder="напр. 1900"
-              className={error ? errorInputClass : normalInputClass}
+              className={normalInputClass}
             />
           </>
         ) : (
@@ -131,14 +116,10 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
             onChange={(e) => onChange({ dateFrom: e.target.value })}
             disabled={disabled}
             placeholder={state.dateMode === "other" ? "кінець XVII ст., пр. 1870-ті тощо" : "напр. 1890"}
-            className={`col-span-2 ${error ? errorInputClass : normalInputClass}`}
+            className={`col-span-2 ${normalInputClass}`}
           />
         )}
       </div>
-
-      {error && (
-        <p className="text-base text-red-600 dark:text-red-400">{error}</p>
-      )}
 
     </div>
   );
