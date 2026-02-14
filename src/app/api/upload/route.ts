@@ -24,8 +24,7 @@ export async function POST(request: Request) {
   const dateFrom = fd.get("dateFrom") as string;
   const dateTo = fd.get("dateTo") as string;
   const isArbitraryDate = fd.get("isArbitraryDate") === "true";
-  const isOver75Years = fd.get("isOver75Years") === "true";
-  const isRussianEmpire = fd.get("isRussianEmpire") === "true";
+  const license = (fd.get("license") as string | null) ?? "";
   const spravaName = (fd.get("spravaName") as string | null) ?? "";
   const author = (fd.get("author") as string | null) ?? "";
   const filename = (fd.get("fileName") as string | null)?.trim();
@@ -37,6 +36,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Відсутні обов'язкові поля" }, { status: 400 });
   }
 
+  if (!license.trim()) {
+    return NextResponse.json({ error: "Оберіть ліцензію" }, { status: 400 });
+  }
+
   if (!isArbitraryDate) {
     const match = dateTo.match(/\d{4}/);
     if (match && parseInt(match[0], 10) > THRESHOLD_75) {
@@ -45,8 +48,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-  } else if (!isOver75Years) {
-    return NextResponse.json({ error: "Підтвердіть, що справі більше 75 років" }, { status: 400 });
   }
 
   const archive = ARCHIVES.find((a) => a.abbr === archiveAbbr);
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
     dateFrom,
     dateTo,
     isArbitraryDate,
-    isRussianEmpire,
+    license,
     author,
   });
   const comment = `Завантаження через Вікіархіватор: ${archive.name}, Ф. ${fond}, Оп. ${opis}, Спр. ${sprava}`;

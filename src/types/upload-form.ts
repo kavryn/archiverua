@@ -1,6 +1,7 @@
 import type { Archive } from "@/lib/archives";
 import { getDateError, type DateMode, type DateState } from "@/components/DateFields";
 
+
 export const CHUNK_SIZE = 20 * 1024 * 1024;
 export const LARGE_FILE_THRESHOLD = 20 * 1024 * 1024;
 export const MAX_CHUNK_RETRIES = 3;
@@ -44,8 +45,7 @@ export interface FileEntry {
   dateMode: DateMode;
   dateFrom: string;
   dateTo: string;
-  isOver75Years: boolean;
-  isRussianEmpire: boolean;
+  license: string;
   fondName: NameFieldState;
   opisName: NameFieldState;
   spravaName: string;
@@ -75,8 +75,7 @@ export function makeEntry(file: File): FileEntry {
     dateMode: "range",
     dateFrom: "",
     dateTo: "",
-    isOver75Years: false,
-    isRussianEmpire: false,
+    license: "",
     fondName: emptyNameState,
     opisName: emptyNameState,
     spravaName: "",
@@ -118,18 +117,16 @@ export function isEntryValid(entry: FileEntry): boolean {
     dateMode: entry.dateMode,
     dateFrom: entry.dateFrom,
     dateTo: entry.dateTo,
-    isOver75Years: entry.isOver75Years,
-    isRussianEmpire: entry.isRussianEmpire,
   };
   const dateError = getDateError(dateState);
   const dateEnabled = entry.sprava.trim() !== "";
   const datesValid =
     dateEnabled &&
     !dateError &&
-    (entry.dateMode !== "other" || entry.isOver75Years) &&
     (entry.dateMode === "single"
       ? entry.dateFrom.trim() !== ""
-      : entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "");
+      : entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "") &&
+    entry.license.trim() !== "";
 
   const fondNameShown = entry.fondName.loading || entry.fondName.lastFetchedTitle !== "";
   const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;

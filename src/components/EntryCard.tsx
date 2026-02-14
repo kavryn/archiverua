@@ -1,6 +1,7 @@
 import ArchiveCombobox from "./ArchiveCombobox";
 import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
+import LicenseField from "./LicenseField";
 import { type FileEntry, buildAutoFileName, getEffectiveFileName } from "@/types/upload-form";
 import type { Archive } from "@/lib/archives";
 
@@ -20,8 +21,6 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
     dateMode: entry.dateMode,
     dateFrom: entry.dateFrom,
     dateTo: entry.dateTo,
-    isOver75Years: entry.isOver75Years,
-    isRussianEmpire: entry.isRussianEmpire,
   };
 
   const fondNameWritable = !entry.fondName.loading && !entry.fondName.exists;
@@ -230,9 +229,26 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           }
           message="Вкажіть хоча б одну дату"
         />
+      </div>
+
+      {/* Ліцензування */}
+      <div>
+        <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+          Ліцензування
+        </label>
+        <LicenseField
+          dateState={dateState}
+          value={entry.license}
+          onChange={(license) => onUpdate({ license })}
+          disabled={false}
+        />
         <FieldError
-          show={entry.submitted && entry.dateMode === "other" && !entry.isOver75Years}
-          message="Підтвердіть, що справі більше 75 років"
+          show={
+            entry.submitted &&
+            (entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "") &&
+            entry.license.trim() === ""
+          }
+          message="Оберіть ліцензію"
         />
       </div>
 
@@ -288,7 +304,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
       {/* Назва файлу */}
       <div>
         <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-          Назва файлу
+          Публічна назва файлу
         </label>
         <input
           type="text"

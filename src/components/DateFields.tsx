@@ -2,7 +2,6 @@
 
 const CURRENT_YEAR = new Date().getFullYear();
 const THRESHOLD_75 = CURRENT_YEAR - 75;
-const THRESHOLD_125 = CURRENT_YEAR - 125;
 
 export type DateMode = "single" | "range" | "other";
 
@@ -10,8 +9,6 @@ export interface DateState {
   dateMode: DateMode;
   dateFrom: string;
   dateTo: string;
-  isOver75Years: boolean;
-  isRussianEmpire: boolean;
 }
 
 interface Props {
@@ -21,7 +18,7 @@ interface Props {
   label?: string;
 }
 
-function getEndYear(state: DateState): number | null {
+export function getEndYear(state: DateState): number | null {
   const endStr = state.dateMode === "single" ? state.dateFrom : state.dateTo;
   const match = endStr.match(/\d{4}/);
   if (!match) return null;
@@ -38,12 +35,6 @@ export function getDateError(state: DateState): string | null {
   return null;
 }
 
-export function showRussianEmpireCheckbox(state: DateState): boolean {
-  if (state.dateMode === "other") return false;
-  const endYear = getEndYear(state);
-  if (endYear === null) return false;
-  return endYear > THRESHOLD_125 && endYear <= THRESHOLD_75;
-}
 
 const MODE_LABELS: { mode: DateMode; label: string }[] = [
   { mode: "single", label: "Одна дата" },
@@ -88,10 +79,9 @@ function Switcher({
 
 export default function DateFields({ state, onChange, disabled, label }: Props) {
   const error = getDateError(state);
-  const showRussianEmpire = showRussianEmpireCheckbox(state);
 
   function handleModeChange(mode: DateMode) {
-    onChange({ dateMode: mode, dateFrom: "", dateTo: "", isOver75Years: false, isRussianEmpire: false });
+    onChange({ dateMode: mode, dateFrom: "", dateTo: "" });
   }
 
   return (
@@ -150,31 +140,6 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
         <p className="text-base text-red-600 dark:text-red-400">{error}</p>
       )}
 
-      {state.dateMode === "other" && (
-        <label className="flex items-center gap-2 text-base text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            checked={state.isOver75Years}
-            onChange={(e) => onChange({ isOver75Years: e.target.checked })}
-            disabled={disabled}
-            className="rounded border-zinc-300"
-          />
-          Цій справі більше 75 років
-        </label>
-      )}
-
-      {showRussianEmpire && (
-        <label className="flex items-center gap-2 text-base text-zinc-700 dark:text-zinc-300">
-          <input
-            type="checkbox"
-            checked={state.isRussianEmpire}
-            onChange={(e) => onChange({ isRussianEmpire: e.target.checked })}
-            disabled={disabled}
-            className="rounded border-zinc-300"
-          />
-          Документ Російської імперії
-        </label>
-      )}
     </div>
   );
 }

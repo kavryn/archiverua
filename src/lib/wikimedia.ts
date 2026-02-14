@@ -229,7 +229,7 @@ export interface DescriptionParams {
   dateFrom: string;
   dateTo: string;
   isArbitraryDate: boolean;
-  isRussianEmpire: boolean;
+  license: string;
   author?: string;
 }
 
@@ -320,10 +320,6 @@ export function buildDescription(params: DescriptionParams): string {
 
   const source = `[[${params.archiveName}]] (${params.abbr}), Ф. ${params.fond}, Оп. ${params.opis}, Спр. ${params.sprava}`;
 
-  const licenseTemplate = params.isRussianEmpire
-    ? "{{PD-Russia-2}}"
-    : "{{PD-old-auto}}";
-
   return `=={{int:filedesc}}==
 {{Information
 |description={{uk|1=Документ з ${source}}}
@@ -333,7 +329,7 @@ export function buildDescription(params: DescriptionParams): string {
 }}
 
 =={{int:license-header}}==
-${licenseTemplate}
+${params.license}
 
 [[Category:Documents from Ukrainian archives]]
 `;
