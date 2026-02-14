@@ -2,6 +2,7 @@ import ArchiveCombobox from "./ArchiveCombobox";
 import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
 import LicenseField from "./LicenseField";
+import LicenseHelpPopup from "./LicenseHelpPopup";
 import { type FileEntry, buildAutoFileName, getEffectiveFileName } from "@/types/upload-form";
 import type { Archive } from "@/lib/archives";
 
@@ -217,16 +218,19 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           type="text"
           value={entry.author}
           onChange={(e) => onUpdate({ author: e.target.value })}
-          placeholder="напр. Греко-католицька митрополича консисторія"
+          placeholder="Хто створив справу, якщо це відомо"
           className={inputClass}
         />
       </div>
 
       {/* Ліцензування */}
       <div>
-        <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
-          Ліцензування
-        </label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-base font-medium text-zinc-700 dark:text-zinc-300">
+            Ліцензування
+          </label>
+          <LicenseHelpPopup />
+        </div>
         <LicenseField
           dateState={dateState}
           author={entry.author}
