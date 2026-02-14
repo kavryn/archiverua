@@ -48,9 +48,8 @@ export default function ArchiveCombobox({ value, onChange, disabled }: Props) {
             <ComboboxOption
               key={archive.abbr}
               value={archive}
-              className="cursor-pointer px-3 py-2 text-base data-[focus]:bg-zinc-50 dark:data-[focus]:bg-zinc-700"
-            >
-              <span className="text-zinc-900 dark:text-zinc-100">{archive.name}</span>
+              className="cursor-pointer px-3 py-2 text-base data-[focus]:bg-zinc-50">
+              <span className="text-zinc-900">{archive.name}</span>
               <span className="ml-2 text-sm text-zinc-400">{archive.abbr}</span>
             </ComboboxOption>
           ))

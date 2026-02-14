@@ -44,7 +44,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
   const totalMB = (entry.totalBytes / (1024 * 1024)).toFixed(1);
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+    <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4">
       <div className="-mx-4 -mt-4 rounded-t-lg bg-zinc-600 px-4 py-3">
          <div className="truncate font-mono text-base font-semibold text-white">
            {entry.file.name}
@@ -106,7 +106,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
       {/* Name fields */}
       <div className="flex flex-col gap-2">
         {entry.spravaWikisource.exists && spravaWikisourceUrl && (
-          <p className="text-base text-blue-700 dark:text-blue-400">
+          <p className="text-base text-blue-700">
             Така справа вже існує у Вікіджерелах, але ви можете завантажити свою версію.{" "}
             <a href={spravaWikisourceUrl} target="_blank" rel="noopener noreferrer" className="underline">
               Переглянути справу
@@ -149,7 +149,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
 
         <div>
           <label className="label">
-            Назва опису <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
+            Назва опису <span className="text-zinc-400">(необовʼязково)</span>
           </label>
           <input
             type="text"
@@ -211,7 +211,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
 
       <div>
         <label className="label">
-          Автор <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
+          Автор <span className="text-zinc-400">(необовʼязково)</span>
         </label>
         <input
           type="text"
@@ -225,7 +225,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
       {/* Ліцензування */}
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <label className="text-base font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="text-base font-medium text-zinc-700">
             Ліцензування
           </label>
           <LicenseHelpPopup />
@@ -250,27 +250,27 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
       {/* Upload status */}
       {entry.status === "uploading" && entry.totalChunks > 0 && (
         <div className="flex flex-col gap-1">
-          <div className="text-base text-zinc-600 dark:text-zinc-400">
+          <div className="text-base text-zinc-600">
             Чанк {entry.currentChunk} з {entry.totalChunks} — {entry.uploadProgress}%
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200">
             <div
               style={{ width: `${entry.uploadProgress}%` }}
               className="h-2 rounded-full bg-blue-600 transition-all duration-300"
             />
           </div>
-          <div className="text-sm text-zinc-500 dark:text-zinc-400">
+          <div className="text-sm text-zinc-500">
             {uploadedMB} МБ з {totalMB} МБ
           </div>
         </div>
       )}
 
       {entry.status === "uploading" && entry.totalChunks === 0 && (
-        <p className="text-base text-zinc-600 dark:text-zinc-400">Завантаження…</p>
+        <p className="text-base text-zinc-600">Завантаження…</p>
       )}
 
       {entry.status === "success" && (
-        <p className="text-base text-green-700 dark:text-green-400">
+        <p className="text-base text-green-700">
           Успішно!{" "}
           <a href={entry.resultUrl} target="_blank" rel="noopener noreferrer" className="underline">
             Переглянути файл
@@ -279,7 +279,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
       )}
 
       {entry.status === "duplicate" && (
-        <p className="text-base text-yellow-700 dark:text-yellow-400">
+        <p className="text-base text-yellow-700">
           Файл з таким вмістом вже існує у Вікісховищі.{" "}
           <a
             href={entry.duplicateUrl}
@@ -293,7 +293,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
       )}
 
       {entry.status === "error" && (
-        <p className="text-base text-red-600 dark:text-red-400">{entry.errorMessage}</p>
+        <p className="text-base text-red-600">{entry.errorMessage}</p>
       )}
 
       {/* Назва файлу */}

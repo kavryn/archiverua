@@ -62,8 +62,8 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
         onDrop={handleDrop}
         className={`cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
           isDragging
-            ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-            : "border-zinc-300 hover:border-zinc-400 dark:border-zinc-600 dark:hover:border-zinc-500"
+            ? "border-blue-500 bg-blue-50"
+            : "border-zinc-300 hover:border-zinc-400"
         }`}
       >
         <input
@@ -74,10 +74,10 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
           onChange={handleChange}
           className="hidden"
         />
-        <p className="font-medium text-zinc-700 dark:text-zinc-300">
+        <p className="font-medium text-zinc-700">
           Перетягніть PDF або DJVU файли сюди
         </p>
-        <p className="font-medium text-zinc-700 dark:text-zinc-300">
+        <p className="font-medium text-zinc-700">
           або натисніть для вибору
         </p>
       </div>
@@ -87,19 +87,18 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
           {files.map((file, index) => (
             <li
               key={index}
-              className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-2 dark:bg-zinc-800"
-            >
-              <span className="mr-4 truncate text-base text-zinc-700 dark:text-zinc-300">
+              className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-2">
+              <span className="mr-4 truncate text-base text-zinc-700">
                 {file.name}
               </span>
               <div className="flex shrink-0 items-center gap-2">
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                <span className="text-sm text-zinc-500">
                   {formatSize(file.size)}
                 </span>
                 <button
                   type="button"
                   onClick={() => onRemove(index)}
-                  className="text-zinc-400 transition-colors hover:text-red-500 dark:hover:text-red-400"
+                  className="text-zinc-400 transition-colors hover:text-red-500"
                   aria-label={`Видалити ${file.name}`}
                 >
                   <TrashIcon className="size-4" />

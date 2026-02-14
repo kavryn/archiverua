@@ -12,13 +12,6 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -26,23 +19,23 @@ body {
 }
 
 .input {
-  @apply w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900;
+  @apply w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400;
 }
 
 .dropdown {
-  @apply z-10 rounded-md border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-800 focus:outline-none;
+  @apply z-10 rounded-md border border-zinc-300 bg-white shadow-lg focus:outline-none;
 }
 
 .btn-primary {
-  @apply rounded-md bg-blue-600 px-4 py-2 text-base font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500;
+  @apply rounded-md bg-blue-600 px-4 py-2 text-base font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500;
 }
 
 .label {
-  @apply mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300;
+  @apply mb-1 block text-base font-medium text-zinc-700;
 }
 
 .page-shell {
-  @apply flex min-h-screen flex-col bg-zinc-50 font-sans dark:bg-black;
+  @apply flex min-h-screen flex-col bg-zinc-50 font-sans;
 }
 
 .page-content {

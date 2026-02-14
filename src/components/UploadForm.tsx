@@ -45,7 +45,7 @@ export default function UploadForm() {
       <button
         type="button"
         onClick={handleBack}
-        className="self-start text-base text-blue-600 hover:underline dark:text-blue-400"
+        className="self-start text-base text-blue-600 hover:underline"
       >
         ← Назад
       </button>
@@ -71,7 +71,7 @@ export default function UploadForm() {
       </button>
 
       {hasErrors && (
-        <p className="text-base text-red-600 dark:text-red-400">
+        <p className="text-base text-red-600">
           У формі наявні помилки. Виправте їх і спробуйте знову.
         </p>
       )}

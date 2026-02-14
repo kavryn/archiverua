@@ -6,7 +6,7 @@ export default async function AuthButton() {
   if (session?.user) {
     return (
       <div className="flex items-center gap-4">
-        <span className="text-base text-zinc-700 dark:text-zinc-300">
+        <span className="text-base text-zinc-700">
           Вітаємо, {session.user.name}
         </span>
         <form
@@ -17,7 +17,7 @@ export default async function AuthButton() {
         >
           <button
             type="submit"
-            className="rounded-full border border-solid border-black/[.08] px-4 py-2 text-base transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a]"
+            className="rounded-full border border-solid border-black/[.08] px-4 py-2 text-base transition-colors hover:border-transparent hover:bg-black/[.04]"
           >
             Вийти
           </button>
@@ -35,7 +35,7 @@ export default async function AuthButton() {
     >
       <button
         type="submit"
-        className="rounded-full bg-foreground px-5 py-2 text-base font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+        className="rounded-full bg-foreground px-5 py-2 text-base font-medium text-background transition-colors hover:bg-[#383838]"
       >
         Авторизуватись
       </button>

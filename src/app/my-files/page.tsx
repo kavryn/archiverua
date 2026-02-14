@@ -39,16 +39,16 @@ export default async function MyFilesPage() {
       <AppHeader />
       <main className="page-content py-12">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
+          <h1 className="text-3xl font-semibold tracking-tight text-black">
             Мої файли
           </h1>
-          <p className="text-base text-zinc-500 dark:text-zinc-400">
+          <p className="text-base text-zinc-500">
             Завантажено файлів: {contribs.length}
           </p>
         </div>
 
         {contribs.length === 0 ? (
-          <p className="text-zinc-600 dark:text-zinc-400">
+          <p className="text-zinc-600">
             Ви ще не завантажували файлів через Вікіархіватор.
           </p>
         ) : (
@@ -69,11 +69,11 @@ export default async function MyFilesPage() {
                     href={fileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-base text-blue-600 hover:underline dark:text-blue-400"
+                    className="text-base text-blue-600 hover:underline"
                   >
                     {filename}
                   </a>
-                  <span className="text-sm text-zinc-400 dark:text-zinc-500">{date}</span>
+                  <span className="text-sm text-zinc-400">{date}</span>
                 </li>
               );
             })}

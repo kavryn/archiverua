@@ -128,7 +128,7 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
     <Listbox value={value} onChange={onChange} multiple disabled={disabled}>
       <Listbox.Button
         className={`input flex items-center justify-between text-left ${
-          value.length === 0 ? "text-zinc-400 dark:text-zinc-500" : ""
+          value.length === 0 ? "text-zinc-400" : ""
         }`}
       >
         <span className="truncate">{getTriggerLabel()}</span>
@@ -152,8 +152,7 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
             key={opt.value}
             value={opt.value}
             as="div"
-            className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700"
-          >
+            className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-zinc-50">
             {({ selected }) => (
               <>
                 <input
@@ -162,7 +161,7 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
                   checked={selected}
                   className="mt-0.5 shrink-0 accent-blue-600"
                 />
-                <span className="text-base text-zinc-900 dark:text-zinc-100">{opt.label}</span>
+                <span className="text-base text-zinc-900">{opt.label}</span>
               </>
             )}
           </Listbox.Option>

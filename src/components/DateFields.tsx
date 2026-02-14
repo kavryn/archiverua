@@ -39,7 +39,7 @@ function Switcher({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex shrink-0 overflow-hidden rounded-md border border-zinc-300 dark:border-zinc-600">
+    <div className="flex shrink-0 overflow-hidden rounded-md border border-zinc-300">
       {MODE_LABELS.map(({ mode, label }) => (
         <button
           key={mode}
@@ -49,7 +49,7 @@ function Switcher({
           className={`h-full px-3 text-base transition-colors disabled:cursor-not-allowed ${
             current === mode
               ? "bg-blue-600 text-white"
-              : "bg-white text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              : "bg-white text-zinc-700 hover:bg-zinc-100"
           }`}
         >
           {label}
@@ -72,13 +72,13 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
         {/* Labels row */}
         <div className="flex items-end">
           {label && (
-            <span className="text-base font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
+            <span className="text-base font-medium text-zinc-700">{label}</span>
           )}
         </div>
         {state.dateMode === "range" ? (
           <>
-            <div className="text-sm text-zinc-500 dark:text-zinc-400">Початкова</div>
-            <div className="text-sm text-zinc-500 dark:text-zinc-400">Кінцева</div>
+            <div className="text-sm text-zinc-500">Початкова</div>
+            <div className="text-sm text-zinc-500">Кінцева</div>
           </>
         ) : (
           <div className="col-span-2" />

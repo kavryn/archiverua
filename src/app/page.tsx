@@ -20,13 +20,13 @@ export default async function Home() {
   return (
     <div className="page-shell items-center justify-center">
       <main className="page-content py-32">
-        <h1 className="text-4xl font-semibold tracking-tight text-black dark:text-zinc-50">
+        <h1 className="text-4xl font-semibold tracking-tight text-black">
           Вікіархіватор
-          <span className="ml-1.5 inline-block align-super rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+          <span className="ml-1.5 inline-block align-super rounded-full bg-blue-100 px-1.5 py-0.5 text-xs font-semibold tracking-wide text-blue-600">
             beta
           </span>
         </h1>
-        <p className="text-xl leading-8 text-zinc-600 dark:text-zinc-400">
+        <p className="text-xl leading-8 text-zinc-600">
           Найшвидший спосіб опублікувати справи з українських архівів на Вікісховищі та Вікіджерелах
         </p>
         <AuthButton />
