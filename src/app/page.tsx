@@ -27,7 +27,7 @@ export default async function Home() {
           </span>
         </h1>
         <p className="text-xl leading-8 text-zinc-600 dark:text-zinc-400">
-          Найлегший спосіб опублікувати справи з українських архівів на Wikimedia Commons.
+          Найшвидший спосіб опублікувати справи з українських архівів на Вікісховищі та Вікіджерелах
         </p>
         <AuthButton />
       </main>
