@@ -145,7 +145,7 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
 
       <Listbox.Options
         anchor="bottom"
-        className="z-10 w-[var(--button-width)] rounded-md border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-800 focus:outline-none"
+        className="dropdown w-[var(--button-width)]"
       >
         {options.map((opt) => (
           <Listbox.Option

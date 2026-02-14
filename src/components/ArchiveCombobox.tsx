@@ -39,7 +39,7 @@ export default function ArchiveCombobox({ value, onChange, disabled }: Props) {
 
       <ComboboxOptions
         anchor="bottom"
-        className="z-10 w-[var(--input-width)] !max-h-64 overflow-auto rounded-md border border-zinc-300 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-800 focus:outline-none"
+        className="dropdown w-[var(--input-width)] !max-h-64 overflow-auto py-1"
       >
         {results.length === 0 ? (
           <div className="px-3 py-2 text-base text-zinc-500">Нічого не знайдено</div>
