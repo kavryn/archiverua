@@ -3,6 +3,24 @@ import { makeEntry, isEntryValid, fetchWikisourceName, emptyNameState, emptySpra
 import { uploadFile } from "@/lib/upload";
 import type { Archive } from "@/lib/archives";
 
+/**
+ * Changes from "р203" to "Р-203"
+ */
+function normalizeFond(v: string): string {
+  let r = v.replace(/[\s\/]/g, "").toUpperCase();
+  if (r.length >= 2 && /[A-ZА-ЯІЇЄҐ]/.test(r[0]) && /\d/.test(r[1])) {
+    r = r[0] + "-" + r.slice(1);
+  }
+  return r;
+}
+
+/**
+ * Changes from "4-А" to "4а"
+ */
+function normalizeOpisSprava(v: string): string {
+  return v.replace(/[\s\-\/]/g, "").toLowerCase();
+}
+
 export function useUploadForm() {
   const [step, setStep] = useState<1 | 2>(1);
   const [files, setFiles] = useState<File[]>([]);
@@ -39,13 +57,15 @@ export function useUploadForm() {
 
   // Per-entry blur handlers
   async function handleFondBlur(index: number, value: string) {
+    value = normalizeFond(value);
+    updateEntry(index, { fond: value });
     const entry = fileStates[index];
     if (!entry.archive) return;
-    if (!value.trim()) {
+    if (!value) {
       updateEntry(index, { fondName: emptyNameState, opisName: emptyNameState, spravaWikisource: emptySpravaWikisource });
       return;
     }
-    const title = `Архів:${entry.archive.abbr}/${value.trim()}`;
+    const title = `Архів:${entry.archive.abbr}/${value}`;
     if (entry.fondName.lastFetchedTitle === title) return;
     updateEntry(index, { fondName: { ...entry.fondName, loading: true } });
     try {
@@ -61,13 +81,15 @@ export function useUploadForm() {
   }
 
   async function handleOpisBlur(index: number, value: string) {
+    value = normalizeOpisSprava(value);
+    updateEntry(index, { opis: value });
     const entry = fileStates[index];
-    if (!entry.archive || !entry.fond.trim()) return;
-    if (!value.trim()) {
+    if (!entry.archive || !entry.fond) return;
+    if (!value) {
       updateEntry(index, { opisName: emptyNameState, spravaWikisource: emptySpravaWikisource });
       return;
     }
-    const title = `Архів:${entry.archive.abbr}/${entry.fond.trim()}/${value.trim()}`;
+    const title = `Архів:${entry.archive.abbr}/${entry.fond}/${value}`;
     if (entry.opisName.lastFetchedTitle === title) return;
     updateEntry(index, { opisName: { ...entry.opisName, loading: true } });
     try {
@@ -83,13 +105,15 @@ export function useUploadForm() {
   }
 
   async function handleSpravaBlur(index: number, value: string) {
+    value = normalizeOpisSprava(value);
+    updateEntry(index, { sprava: value });
     const entry = fileStates[index];
-    if (!entry.archive || !entry.fond.trim() || !entry.opis.trim()) return;
-    if (!value.trim()) {
+    if (!entry.archive || !entry.fond || !entry.opis) return;
+    if (!value) {
       updateEntry(index, { spravaWikisource: emptySpravaWikisource });
       return;
     }
-    const title = `Архів:${entry.archive.abbr}/${entry.fond.trim()}/${entry.opis.trim()}/${value.trim()}`;
+    const title = `Архів:${entry.archive.abbr}/${entry.fond}/${entry.opis}/${value}`;
     if (entry.spravaWikisource.lastFetchedTitle === title) return;
     updateEntry(index, { spravaWikisource: { ...entry.spravaWikisource, loading: true } });
     try {

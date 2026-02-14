@@ -100,7 +100,7 @@ export function buildAutoFileName(entry: FileEntry): string {
   if (!entry.archive || !entry.fond || !entry.opis || !entry.sprava) return "";
   const ext = entry.file.name.split(".").pop() ?? "pdf";
   const spravaName = entry.spravaName.trim();
-  const prefix = `${entry.archive.abbr} ${entry.fond}-${entry.opis}-${entry.sprava}. `;
+  const prefix = `${entry.archive.abbr} ${entry.fond}/${entry.opis}/${entry.sprava}. `;
   const suffix = `.${ext}`;
   const maxNameLen = 75 - prefix.length - suffix.length;
   const truncated = spravaName.slice(0, Math.max(0, maxNameLen));
