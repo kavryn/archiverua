@@ -23,7 +23,8 @@ body {
 }
 
 .dropdown {
-  @apply z-10 rounded-md border border-zinc-300 bg-white shadow-lg focus:outline-none;
+  @apply z-10 rounded-md border border-zinc-300 bg-white shadow-xl/40
+  focus:outline-none;
 }
 
 .btn-primary {

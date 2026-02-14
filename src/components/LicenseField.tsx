@@ -19,7 +19,7 @@ export const ALL_OPTIONS: Option[] = [
   {
     value: "{{PD-scan|PD-old-assumed-expired}}",
     template: "PD-old-assumed-expired",
-    label: `Документ створений до ${THRESHOLD_120} року (автор невідомий або дата смерті невідома)`,
+    label: `Документ створений до 1 січня ${THRESHOLD_120} року (автор невідомий або дата смерті невідома)`,
     helpText: `Ситуація з авторським правом на цей твір теоретично невизначена, оскільки в країні походження авторське право триває 70 років після смерті автора, а дата смерті автора невідома. Однак дата створення твору була понад 120 років тому, і тому є розумним припущення, що термін дії авторського права закінчився. Не використовуйте цей шаблон, якщо дата смерті автора відома.`
   },
   {
@@ -38,14 +38,14 @@ export const ALL_OPTIONS: Option[] = [
   {
     value: "{{PD-scan|PD-Ukraine}}",
     template: "PD-Ukraine",
-    label: `Робота опублікована в Україні чи УРСР до ${THRESHOLD_70} року (автор невідомий або помер до цієї дати)`,
+    label: `Робота опублікована в Україні чи УРСР до 1 січня ${THRESHOLD_70} року (автор невідомий або помер до цієї дати)`,
     helpText: `Цей файл є твором, створеним в Україні чи Українській РСР, і перебуває в суспільному надбанні в
     Україні, оскільки він був опублікований до 1 січня ${THRESHOLD_70} року і його творець (якщо відомий) помер до цієї дати.`
   },
   {
     value: "{{PD-scan|PD-anon-70-EU}}",
     template: "PD-anon-70-EU",
-    label: `Анонімна робота, опублікована у країні ЄС до ${THRESHOLD_70} року`,
+    label: `Анонімна робота, опублікована у країні ЄС до 1 січня ${THRESHOLD_70} року`,
     helpText: `This image (or other media file) is in the public domain because its copyright has expired and its
     author is anonymous. This applies to the European Union and those countries with a copyright term of 70 years after the work was made available to the public and the author never disclosed their identity.`
   }
@@ -152,7 +152,7 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
             key={opt.value}
             value={opt.value}
             as="div"
-            className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-zinc-50">
+            className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-blue-50">
             {({ selected }) => (
               <>
                 <input
