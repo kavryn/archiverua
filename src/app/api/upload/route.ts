@@ -48,13 +48,14 @@ export async function POST(request: Request) {
     fond,
     opis,
     sprava,
+    spravaName,
     dateFrom,
     dateTo,
     isArbitraryDate,
     license,
     author,
   });
-  const comment = `Завантаження через Вікіархіватор: ${archive.name}, Ф. ${fond}, Оп. ${opis}, Спр. ${sprava}`;
+  const comment = `Завантаження через Вікіархіватор`;
 
   try {
     const csrfToken = await getCsrfToken(session.accessToken);

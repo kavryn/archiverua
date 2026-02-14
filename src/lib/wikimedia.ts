@@ -226,6 +226,7 @@ export interface DescriptionParams {
   fond: string;
   opis: string;
   sprava: string;
+  spravaName?: string;
   dateFrom: string;
   dateTo: string;
   isArbitraryDate: boolean;
@@ -318,13 +319,11 @@ export function buildDescription(params: DescriptionParams): string {
     ? `${params.dateFrom}–${params.dateTo}`
     : `${params.dateFrom}–${params.dateTo}`;
 
-  const source = `[[${params.archiveName}]] (${params.abbr}), Ф. ${params.fond}, Оп. ${params.opis}, Спр. ${params.sprava}`;
-
   return `=={{int:filedesc}}==
 {{Information
-|description={{uk|1=Документ з ${source}}}
+|description={{uk|1=Фонд ${params.fond}, опис ${params.opis}, справа ${params.sprava}${params.spravaName ? ` – ${params.spravaName}` : ""}}}
 |date=${dateStr}
-|source=${source}
+|source=${params.archiveName}
 |author=${params.author ? params.author : "{{author|unknown}}"}
 }}
 
