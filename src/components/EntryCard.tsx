@@ -229,6 +229,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
         </label>
         <LicenseField
           dateState={dateState}
+          author={entry.author}
           value={entry.license}
           onChange={(license) => onUpdate({ license })}
           disabled={false}

@@ -5,6 +5,7 @@ import { getEndYear, type DateState } from "./DateFields";
 
 const CURRENT_YEAR = new Date().getFullYear();
 const THRESHOLD_120 = CURRENT_YEAR - 120;
+const THRESHOLD_70 = CURRENT_YEAR - 70;
 
 const baseInputClass =
   "w-full rounded-md border px-3 py-2 text-base placeholder-zinc-400 focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
@@ -18,41 +19,48 @@ interface Option {
 const ALL_OPTIONS: Option[] = [
   {
     value: "{{PD-scan|PD-old-assumed-expired}}",
-    label: "Робота створена більше 120 років тому. Термін дії авторського права закінчився.",
+    label: `Документ створений до ${THRESHOLD_120} року (автор невідомий або дата смерті невідома)`,
   },
   {
     value: "{{PD-scan|PD-UA-exempt}}",
-    label: "Це метрична книга або будь-який інший офіційний документ створений органами влади чи місцевого самоврядування",
+    label: "Офіційний документ органів влади або самоврядування",
   },
   {
     value: "{{PD-scan|PD-RusEmpire}}",
-    label: "Ця робота була опублікована на території Російської імперії",
+    label: "Робота опублікована в Російській імперії до 7 листопада 1917 року",
   },
   {
     value: "{{PD-scan|PD-Ukraine}}",
-    label: `Робота опублікована до 1 січня ${CURRENT_YEAR - 70} року, а автор невідомий або помер до цієї дати`,
+    label: `Робота опублікована до ${THRESHOLD_70} року (автор невідомий або помер до цієї дати)`,
   },
+  {
+    value: "{{PD-scan|PD-anon-70-EU}}",
+    label: `Анонімна робота, опублікована у Західній Україні чи Буковині до 1939 року`,
+  }
 ];
 
-function getAvailableOptions(endYear: number | null, mode: string): Option[] {
-  if (mode === "other") return ALL_OPTIONS;
+function getAvailableOptions(endYear: number | null, mode: string, author: string): Option[] {
+  const anonymousAuthor = author.trim() === "";
+  if (mode === "other") return ALL_OPTIONS.filter((opt) => opt.value !== "{{PD-scan|PD-anon-70-EU}}" || anonymousAuthor);
   if (endYear === null) return [];
   return ALL_OPTIONS.filter((opt) => {
     if (opt.value === "{{PD-scan|PD-old-assumed-expired}}") return endYear < THRESHOLD_120;
     if (opt.value === "{{PD-scan|PD-RusEmpire}}") return endYear <= 1917;
-    if (opt.value === "{{PD-scan|PD-Ukraine}}") return endYear < CURRENT_YEAR - 70;
+    if (opt.value === "{{PD-scan|PD-Ukraine}}") return endYear < THRESHOLD_70;
+    if (opt.value === "{{PD-scan|PD-anon-70-EU}}") return endYear <= 1939 && anonymousAuthor;
     return true;
   });
 }
 
 interface Props {
   dateState: DateState;
+  author: string;
   value: string;
   onChange: (license: string) => void;
   disabled?: boolean;
 }
 
-export default function LicenseField({ dateState, value, onChange, disabled }: Props) {
+export default function LicenseField({ dateState, author, value, onChange, disabled }: Props) {
   const endYear = getEndYear(dateState);
 
   useEffect(() => {
@@ -79,7 +87,7 @@ export default function LicenseField({ dateState, value, onChange, disabled }: P
     );
   }
 
-  const options = getAvailableOptions(endYear, dateState.dateMode);
+  const options = getAvailableOptions(endYear, dateState.dateMode, author);
 
   return (
     <select
