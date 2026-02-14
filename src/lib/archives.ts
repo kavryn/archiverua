@@ -5,6 +5,9 @@ export interface Archive {
 }
 
 export const ARCHIVES: Archive[] = [
+  { name: "Центральний державний історичний архів України, м. Київ", abbr: "ЦДІАК", category: "Funds of Central State Historical Archives of Ukraine in Kyiv" },
+  { name: "Центральний державний історичний архів України, м. Львів", abbr: "ЦДІАЛ", category: "Funds of The Central State Historical Archive in Lviv" },
+  { name: "Центральний державний архів вищих органів влади та управління України", abbr: "ЦДАВО", category: "Funds of Central State Archives of Supreme Bodies of Power and Government of Ukraine" },
   { name: "Державний архів Вінницької області", abbr: "ДАВіО", category: "Funds of State Archive of Vinnytsia Oblast" },
   { name: "Державний архів Волинської області", abbr: "ДАВоО", category: "Funds of State Archive of Volyn Oblast" },
   { name: "Державний архів Дніпропетровської області", abbr: "ДАДнО", category: "Funds of State Archive of Dnipropetrovsk Oblast" },
@@ -30,10 +33,7 @@ export const ARCHIVES: Archive[] = [
   { name: "Державний архів Черкаської області", abbr: "ДАЧкО", category: "Funds of State Archive of Cherkasy Oblast" },
   { name: "Державний архів Чернівецької області", abbr: "ДАЧвО", category: "Funds of State Archive of Chernivtsi Oblast" },
   { name: "Державний архів Чернігівської області", abbr: "ДАЧгО", category: "Funds of State Archive of Chernihiv Oblast" },
-  { name: "Державний архів в Автономній Республіці Крим", abbr: "ДААРК", category: "Funds of State Archive in the Autonomous Republic of Crimea"},
-  { name: "Центральний державний архів вищих органів влади та управління України", abbr: "ЦДАВО", category: "Funds of Central State Archives of Supreme Bodies of Power and Government of Ukraine" },
-  { name: "Центральний державний історичний архів України, м. Київ", abbr: "ЦДІАК", category: "Funds of Central State Historical Archives of Ukraine in Kyiv" },
-  { name: "Центральний державний історичний архів України, м. Львів", abbr: "ЦДІАЛ", category: "Funds of The Central State Historical Archive in Lviv" },
+  { name: "Державний архів в Автономній Республіці Крим", abbr: "ДААРК", category: "Funds of State Archive in the Autonomous Republic of Crimea"}
 ];
 
 export function filterArchives(query: string): Archive[] {
