@@ -243,7 +243,6 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
             (entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "") &&
             entry.license.length === 0
           }
-          message="Оберіть ліцензію"
         />
       </div>
 

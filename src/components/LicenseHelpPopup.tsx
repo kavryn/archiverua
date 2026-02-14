@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
+import {
+  InformationCircleIcon,
+  QuestionMarkCircleIcon,
+} from "@heroicons/react/24/outline";
 import { ALL_OPTIONS } from "./LicenseField";
 
 export default function LicenseHelpPopup() {
@@ -36,6 +39,20 @@ export default function LicenseHelpPopup() {
               >
                 ✕
               </button>
+            </div>
+
+            <div className="mx-6 mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <div className="flex gap-3">
+                <InformationCircleIcon className="h-5 w-5 shrink-0 text-blue-500 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p>
+                    Вікісховище приймає лише матеріали, які перебувають у Суспільному надбанні (Public Domain) або мають вільну ліцензію. Оскільки це архівні документи, ви маєте вказати підставу чому цей файл більше не охороняється авторським правом.
+                  </p>
+                  <p className="mt-2 font-medium">
+                    Ви можете вказати одну або більше ліцензій, які ви вважаєте найкраще підходить документу.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-col divide-y divide-zinc-100 px-6">
