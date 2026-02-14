@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useEffect } from "react";
+import { Listbox } from "@headlessui/react";
 import { getEndYear, type DateState } from "./DateFields";
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -84,8 +85,6 @@ interface Props {
 export default function LicenseField({ dateState, author, value: rawValue, onChange, disabled }: Props) {
   const value = Array.isArray(rawValue) ? rawValue : [];
   const endYear = getEndYear(dateState);
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(false);
 
   useEffect(() => {
@@ -100,17 +99,6 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateState.dateFrom, dateState.dateTo, dateState.dateMode]);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
 
   const hasDate =
     dateState.dateMode === "other"
@@ -140,25 +128,16 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
     return `Обрано ${value.length} ${licenseCountLabel(value.length)}`;
   }
 
-  function toggleOption(optValue: string) {
-    if (value.includes(optValue)) {
-      onChange(value.filter((v) => v !== optValue));
-    } else {
-      onChange([...value, optValue]);
-    }
-  }
-
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        className={`${normalInputClass} flex items-center justify-between text-left ${value.length === 0 ? "text-zinc-400 dark:text-zinc-500" : ""}`}
+    <Listbox value={value} onChange={onChange} multiple disabled={disabled}>
+      <Listbox.Button
+        className={`${normalInputClass} flex items-center justify-between text-left ${
+          value.length === 0 ? "text-zinc-400 dark:text-zinc-500" : ""
+        }`}
       >
         <span className="truncate">{getTriggerLabel()}</span>
         <svg
-          className={`ml-2 h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          className="ml-2 h-4 w-4 shrink-0 transition-transform ui-open:rotate-180"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -166,27 +145,33 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
-      </button>
+      </Listbox.Button>
 
-      {open && (
-        <div className="absolute z-10 mt-1 w-full rounded-md border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-800">
-          {options.map((opt) => (
-            <label
-              key={opt.value}
-              className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700"
-            >
-              <input
-                type="checkbox"
-                disabled={disabled}
-                checked={value.includes(opt.value)}
-                onChange={() => toggleOption(opt.value)}
-                className="mt-0.5 shrink-0 accent-blue-600"
-              />
-              <span className="text-base text-zinc-900 dark:text-zinc-100">{opt.label}</span>
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
+      <Listbox.Options
+        anchor="bottom"
+        className="z-10 w-[var(--button-width)] rounded-md border border-zinc-300 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-800 focus:outline-none"
+      >
+        {options.map((opt) => (
+          <Listbox.Option
+            key={opt.value}
+            value={opt.value}
+            as="div"
+            className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700"
+          >
+            {({ selected }) => (
+              <>
+                <input
+                  type="checkbox"
+                  readOnly
+                  checked={selected}
+                  className="mt-0.5 shrink-0 accent-blue-600"
+                />
+                <span className="text-base text-zinc-900 dark:text-zinc-100">{opt.label}</span>
+              </>
+            )}
+          </Listbox.Option>
+        ))}
+      </Listbox.Options>
+    </Listbox>
   );
 }
