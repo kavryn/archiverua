@@ -8,7 +8,6 @@ import type { Archive } from "@/lib/archives";
 
 interface EntryCardProps {
   entry: FileEntry;
-  inputClass: string;
   onUpdate: (patch: Partial<FileEntry>) => void;
   onArchiveChange: (a: Archive | null) => void;
   onFondBlur: (value: string) => void;
@@ -16,7 +15,7 @@ interface EntryCardProps {
   onSpravaBlur: (value: string) => void;
 }
 
-export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange, onFondBlur, onOpisBlur, onSpravaBlur }: EntryCardProps) {
+export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur, onOpisBlur, onSpravaBlur }: EntryCardProps) {
 
   const dateState: DateState = {
     dateMode: entry.dateMode,
@@ -72,7 +71,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             onBlur={(e) => onFondBlur(e.target.value)}
             disabled={false}
             placeholder="Фонд"
-            className={inputClass}
+            className="input"
           />
           <FieldError show={entry.submitted && entry.fond.trim() === ""} />
         </div>
@@ -85,7 +84,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             onBlur={(e) => onOpisBlur(e.target.value)}
             disabled={false}
             placeholder="Опис"
-            className={inputClass}
+            className="input"
           />
           <FieldError show={entry.submitted && entry.opis.trim() === ""} />
         </div>
@@ -98,7 +97,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             onBlur={(e) => onSpravaBlur(e.target.value)}
             disabled={false}
             placeholder="Справа"
-            className={inputClass}
+            className="input"
           />
           <FieldError show={entry.submitted && entry.sprava.trim() === ""} />
         </div>
@@ -115,7 +114,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           </p>
         )}
         <div>
-          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="label">
             Назва фонду
           </label>
           <input
@@ -136,7 +135,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             placeholder={entry.fondName.loading ? "Завантаження…" :
                 entry.fondName.lastFetchedTitle === "" ? "Автоматично. Спершу введіть архів та фонд." :
                 "Введіть назву фонду"}
-            className={inputClass}
+            className="input"
           />
           <FieldError
             show={
@@ -149,7 +148,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
         </div>
 
         <div>
-          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="label">
             Назва опису <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
           </label>
           <input
@@ -170,12 +169,12 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             placeholder={entry.opisName.loading ? "Завантаження…" :
                  entry.opisName.lastFetchedTitle === "" ? "Автоматично. Спершу введіть архів, фонд та опис." :
                  "Введіть назву опису"}
-            className={inputClass}
+            className="input"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="label">
             Назва справи
           </label>
           <input
@@ -184,7 +183,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
             value={entry.spravaName}
             onChange={(e) => onUpdate({ spravaName: e.target.value })}
             placeholder={"Офіційна назва справи"}
-            className={inputClass}
+            className="input"
           />
           <FieldError
             show={entry.submitted && entry.spravaName.trim() === ""}
@@ -211,7 +210,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
       </div>
 
       <div>
-        <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="label">
           Автор <span className="text-zinc-400 dark:text-zinc-500">(необовʼязково)</span>
         </label>
         <input
@@ -219,7 +218,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           value={entry.author}
           onChange={(e) => onUpdate({ author: e.target.value })}
           placeholder="Хто створив справу, якщо це відомо"
-          className={inputClass}
+          className="input"
         />
       </div>
 
@@ -299,7 +298,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
 
       {/* Назва файлу */}
       <div>
-        <label className="mb-1 block text-base font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="label">
           Публічна назва файлу
         </label>
         <input
@@ -315,7 +314,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
               ? "Назва файлу для завантаження"
               : "Спершу введіть архів, фонд, опис, справу та назву справи"
           }
-          className={inputClass}
+          className="input"
         />
         <FieldError
           show={entry.submitted && fileNameEnabled && effectiveFileName.trim() === ""}

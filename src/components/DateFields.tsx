@@ -29,10 +29,6 @@ const MODE_LABELS: { mode: DateMode; label: string }[] = [
   { mode: "other", label: "Інше" },
 ];
 
-const baseInputClass =
-  "w-full rounded-md border px-3 py-2 text-base placeholder-zinc-400 focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
-const normalInputClass = `${baseInputClass} border-zinc-300 bg-white text-zinc-900 focus:border-blue-500 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100`;
-
 function Switcher({
   current,
   onSelect,
@@ -98,7 +94,7 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
               onChange={(e) => onChange({ dateFrom: e.target.value })}
               disabled={disabled}
               placeholder="напр. 1890"
-              className={normalInputClass}
+              className="input"
             />
             <input
               type="text"
@@ -106,7 +102,7 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
               onChange={(e) => onChange({ dateTo: e.target.value })}
               disabled={disabled}
               placeholder="напр. 1900"
-              className={normalInputClass}
+              className="input"
             />
           </>
         ) : (
@@ -116,7 +112,7 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
             onChange={(e) => onChange({ dateFrom: e.target.value })}
             disabled={disabled}
             placeholder={state.dateMode === "other" ? "кінець XVII ст., пр. 1870-ті тощо" : "напр. 1890"}
-            className={`col-span-2 ${normalInputClass}`}
+            className="col-span-2 input"
           />
         )}
       </div>

@@ -35,9 +35,9 @@ export default async function MyFilesPage() {
   const contribs = await getUserContribs(username);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 font-sans dark:bg-black">
+    <div className="page-shell">
       <AppHeader />
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-16 py-12">
+      <main className="page-content py-12">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-semibold tracking-tight text-black dark:text-zinc-50">
             Мої файли

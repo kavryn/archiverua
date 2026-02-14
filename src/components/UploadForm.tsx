@@ -4,9 +4,6 @@ import { useUploadForm } from "@/hooks/useUploadForm";
 import EntryCard from "./EntryCard";
 import FileDropZone from "./FileDropZone";
 
-const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 placeholder-zinc-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
-
 export default function UploadForm() {
   const {
     step,
@@ -35,7 +32,7 @@ export default function UploadForm() {
           type="button"
           onClick={handleContinue}
           disabled={files.length === 0}
-          className="rounded-md bg-blue-600 px-4 py-2 text-base font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
+          className="btn-primary"
         >
           Продовжити
         </button>
@@ -57,7 +54,6 @@ export default function UploadForm() {
         <EntryCard
           key={index}
           entry={entry}
-          inputClass={inputClass}
           onUpdate={(patch) => updateEntry(index, patch)}
           onArchiveChange={(a) => handleArchiveChange(index, a)}
           onFondBlur={(value) => handleFondBlur(index, value)}
@@ -69,7 +65,7 @@ export default function UploadForm() {
       <button
         type="submit"
         disabled={isAnyUploading || allSucceeded}
-        className="rounded-md bg-blue-600 px-4 py-2 text-base font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-500"
+        className="btn-primary"
       >
         {isAnyUploading ? "Завантаження…" : "Завантажити"}
       </button>

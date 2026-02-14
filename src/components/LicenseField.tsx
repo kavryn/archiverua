@@ -8,10 +8,6 @@ const CURRENT_YEAR = new Date().getFullYear();
 const THRESHOLD_120 = CURRENT_YEAR - 120;
 const THRESHOLD_70 = CURRENT_YEAR - 70;
 
-const baseInputClass =
-  "w-full rounded-md border px-3 py-2 text-base placeholder-zinc-400 focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:bg-zinc-100 disabled:text-zinc-400 dark:placeholder-zinc-500 dark:disabled:bg-zinc-900";
-const normalInputClass = `${baseInputClass} border-zinc-300 bg-white text-zinc-900 focus:border-blue-500 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100`;
-
 export interface Option {
   value: string;
   label: string;
@@ -112,7 +108,7 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
         disabled
         value=""
         placeholder="Спершу введіть дати"
-        className={normalInputClass}
+        className="input"
       />
     );
   }
@@ -131,7 +127,7 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
   return (
     <Listbox value={value} onChange={onChange} multiple disabled={disabled}>
       <Listbox.Button
-        className={`${normalInputClass} flex items-center justify-between text-left ${
+        className={`input flex items-center justify-between text-left ${
           value.length === 0 ? "text-zinc-400 dark:text-zinc-500" : ""
         }`}
       >
