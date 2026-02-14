@@ -242,7 +242,7 @@ export default function EntryCard({ entry, inputClass, onUpdate, onArchiveChange
           show={
             entry.submitted &&
             (entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "") &&
-            entry.license.trim() === ""
+            entry.license.length === 0
           }
           message="Оберіть ліцензію"
         />

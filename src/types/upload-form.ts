@@ -45,7 +45,7 @@ export interface FileEntry {
   dateMode: DateMode;
   dateFrom: string;
   dateTo: string;
-  license: string;
+  license: string[];
   fondName: NameFieldState;
   opisName: NameFieldState;
   spravaName: string;
@@ -75,7 +75,7 @@ export function makeEntry(file: File): FileEntry {
     dateMode: "range",
     dateFrom: "",
     dateTo: "",
-    license: "",
+    license: [],
     fondName: emptyNameState,
     opisName: emptyNameState,
     spravaName: "",
@@ -119,7 +119,7 @@ export function isEntryValid(entry: FileEntry): boolean {
     (entry.dateMode === "single"
       ? entry.dateFrom.trim() !== ""
       : entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "") &&
-    entry.license.trim() !== "";
+    entry.license.length > 0;
 
   const fondNameShown = entry.fondName.loading || entry.fondName.lastFetchedTitle !== "";
   const fondNameWritable = fondNameShown && !entry.fondName.loading && !entry.fondName.exists;
