@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import { Combobox, ComboboxInput, ComboboxOptions, ComboboxOption, ComboboxButton } from "@headlessui/react";
 import { filterArchives, type Archive } from "@/lib/archives";
 
 interface Props {
@@ -11,105 +12,50 @@ interface Props {
 
 export default function ArchiveCombobox({ value, onChange, disabled }: Props) {
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
 
   const results = filterArchives(query);
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [query, open]);
-
-  useEffect(() => {
-    if (open && listRef.current) {
-      const activeItem = listRef.current.children[activeIndex] as HTMLElement;
-      activeItem?.scrollIntoView({ block: "nearest" });
-    }
-  }, [activeIndex, open]);
-
-  function handleFocus() {
-    setQuery("");
-    setOpen(true);
-  }
-
-  function handleBlur() {
-    setTimeout(() => {
-      setOpen(false);
-      setQuery("");
-    }, 150);
-  }
-
-  function handleSelect(archive: Archive) {
-    onChange(archive);
-    setOpen(false);
-    setQuery("");
-    inputRef.current?.blur();
-  }
-
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setQuery(e.target.value);
-    if (!open) setOpen(true);
-    if (value) onChange(null);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!open) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (results[activeIndex]) handleSelect(results[activeIndex]);
-    } else if (e.key === "Escape") {
-      setOpen(false);
-      setQuery("");
-      inputRef.current?.blur();
-    } else if (e.key === "Tab") {
-      setOpen(false);
-      setQuery("");
-    }
-  }
-
-  const displayValue = open ? query : (value?.name ?? "");
-
   return (
-    <div className="relative">
-      <input
-        ref={inputRef}
-        type="text"
-        value={displayValue}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        placeholder="Оберіть архів..."
-        className="input"
-      />
-      {open && (
-        <ul ref={listRef} className="absolute z-10 mt-1 max-h-64 w-full overflow-auto rounded-md border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
-          {results.length === 0 ? (
-            <li className="px-3 py-2 text-base text-zinc-500">Нічого не знайдено</li>
-          ) : (
-            results.map((archive, index) => (
-              <li
-                key={archive.abbr}
-                onMouseDown={() => handleSelect(archive)}
-                onMouseEnter={() => setActiveIndex(index)}
-                className={`cursor-pointer px-3 py-2 text-base ${index === activeIndex ? "bg-zinc-100 dark:bg-zinc-700" : "hover:bg-zinc-100 dark:hover:bg-zinc-700"}`}
-              >
-                <span className="text-zinc-900 dark:text-zinc-100">{archive.name}</span>
-                <span className="ml-2 text-sm text-zinc-400">{archive.abbr}</span>
-              </li>
-            ))
-          )}
-        </ul>
-      )}
-    </div>
+    <Combobox value={value} onChange={onChange} disabled={disabled} immediate onClose={() => setQuery("")}>
+      <div className="relative">
+        <ComboboxInput
+          displayValue={(archive: Archive | null) => archive?.name ?? ""}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Оберіть архів..."
+          className="input pr-8"
+        />
+        <ComboboxButton className="absolute inset-y-0 right-0 flex items-center pr-2">
+          <svg
+            className="h-4 w-4 shrink-0 text-zinc-400 transition-transform ui-open:rotate-180"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </ComboboxButton>
+      </div>
+
+      <ComboboxOptions
+        anchor="bottom"
+        className="z-10 w-[var(--input-width)] !max-h-64 overflow-auto rounded-md border border-zinc-300 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-800 focus:outline-none"
+      >
+        {results.length === 0 ? (
+          <div className="px-3 py-2 text-base text-zinc-500">Нічого не знайдено</div>
+        ) : (
+          results.map((archive) => (
+            <ComboboxOption
+              key={archive.abbr}
+              value={archive}
+              className="cursor-pointer px-3 py-2 text-base data-[focus]:bg-zinc-50 dark:data-[focus]:bg-zinc-700"
+            >
+              <span className="text-zinc-900 dark:text-zinc-100">{archive.name}</span>
+              <span className="ml-2 text-sm text-zinc-400">{archive.abbr}</span>
+            </ComboboxOption>
+          ))
+        )}
+      </ComboboxOptions>
+    </Combobox>
   );
 }
