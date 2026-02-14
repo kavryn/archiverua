@@ -19,23 +19,37 @@ interface Option {
 const ALL_OPTIONS: Option[] = [
   {
     value: "{{PD-scan|PD-old-assumed-expired}}",
+    template: "PD-old-assumed-expired",
     label: `Документ створений до ${THRESHOLD_120} року (автор невідомий або дата смерті невідома)`,
+    helpText: `Дата створення твору була понад 120 років тому, і тому є розумним припущення, що термін дії
+    авторського права закінчився. Не використовуйте цей шаблон, якщо дата смерті автора відома.`
   },
   {
     value: "{{PD-scan|PD-UA-exempt}}",
+    template: "PD-UA-exempt",
     label: "Офіційний документ органів влади або самоврядування",
+    helpText: `Ця робота перебуває в суспільному надбанні, оскільки відповідно до статті 8, пункту 3 Закону України
+    про авторське право і суміжні права не охороняються авторським правом: акти органів державної влади, органів місцевого самоврядування, офіційні документи політичного, законодавчого, адміністративного і судового характеру (закони, укази, постанови, рішення, державні стандарти тощо), також їх проекти та офіційні переклади;`
   },
   {
     value: "{{PD-scan|PD-RusEmpire}}",
+    template: "PD-RusEmpire",
     label: "Робота опублікована в Російській імперії до 7 листопада 1917 року",
+    helpText: "Ця робота перебуває в суспільному надбанні в Росії відповідно до статті 1256 Цивільного Кодексу Російської Федерації."
   },
   {
     value: "{{PD-scan|PD-Ukraine}}",
-    label: `Робота опублікована до ${THRESHOLD_70} року (автор невідомий або помер до цієї дати)`,
+    template: "PD-Ukraine",
+    label: `Робота опублікована в Україні чи УРСР до ${THRESHOLD_70} року (автор невідомий або помер до цієї дати)`,
+    helpText: `Цей файл є твором, створеним в Україні чи Українській РСР, і перебуває в суспільному надбанні в
+    Україні, оскільки він був опублікований до 1 січня ${THRESHOLD_70} року і його творець (якщо відомий) помер до цієї дати.`
   },
   {
     value: "{{PD-scan|PD-anon-70-EU}}",
-    label: `Анонімна робота, опублікована у Західній Україні чи Буковині до 1939 року`,
+    template: "PD-anon-70-EU",
+    label: `Анонімна робота, опублікована у ЄС до ${THRESHOLD_70} року`,
+    helpText: `This image (or other media file) is in the public domain because its copyright has expired and its
+    author is anonymous. This applies to the European Union and those countries with a copyright term of 70 years after the work was made available to the public and the author never disclosed their identity.`
   }
 ];
 
@@ -47,7 +61,7 @@ function getAvailableOptions(endYear: number | null, mode: string, author: strin
     if (opt.value === "{{PD-scan|PD-old-assumed-expired}}") return endYear < THRESHOLD_120;
     if (opt.value === "{{PD-scan|PD-RusEmpire}}") return endYear <= 1917;
     if (opt.value === "{{PD-scan|PD-Ukraine}}") return endYear < THRESHOLD_70;
-    if (opt.value === "{{PD-scan|PD-anon-70-EU}}") return endYear <= 1939 && anonymousAuthor;
+    if (opt.value === "{{PD-scan|PD-anon-70-EU}}") return endYear < THRESHOLD_70 && anonymousAuthor;
     return true;
   });
 }
