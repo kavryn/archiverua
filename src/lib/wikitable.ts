@@ -12,7 +12,11 @@ export interface ParsedWikiTable {
   columnCount: number;
 }
 
-export function parseWikiTable(content: string): ParsedWikiTable {
+export interface ParseOptions {
+  idRegex?: RegExp; // default: /\[\[\/([^/]+)\/\]\]/
+}
+
+export function parseWikiTable(content: string, options?: ParseOptions): ParsedWikiTable {
   const tableStartIdx = content.indexOf('{| class="wikitable sortable"');
   if (tableStartIdx === -1) {
     throw new Error("No wikitable found in page content");
@@ -43,7 +47,7 @@ export function parseWikiTable(content: string): ParsedWikiTable {
   }
 
   const headerLine = lines[headerLineIdx];
-  const columnCount = (headerLine.match(/!!/g) || []).length + 1;
+  const columnCount = (headerLine.match(/!!|\|\|/g) || []).length + 1;
 
   const rows: ParsedRow[] = [];
   let i = headerLineIdx + 1;
@@ -56,7 +60,8 @@ export function parseWikiTable(content: string): ParsedWikiTable {
         i++;
       }
       const raw = rowLines.join("\n");
-      const idMatch = raw.match(/\[\[\/([^/]+)\/\]\]/);
+      const idRegex = options?.idRegex ?? /\[\[\/([^/]+)\/\]\]/;
+      const idMatch = raw.match(idRegex);
       const id = idMatch ? idMatch[1] : null;
       rows.push({ raw, id });
     } else {
@@ -75,8 +80,8 @@ export function rebuildPage(parsed: ParsedWikiTable): string {
   return `${parsed.before}${table}${parsed.after}`;
 }
 
-export function buildRow(id: string, cells: string[], columnCount: number): string {
-  const allCells = [`[[/${id}/]]`, ...cells];
+export function buildRow(id: string, cells: string[], columnCount: number, linkPrefix = "/"): string {
+  const allCells = [`[[${linkPrefix}${id}/]]`, ...cells];
   while (allCells.length < columnCount) allCells.push("");
   if (allCells.length > columnCount) allCells.length = columnCount;
   return `|-\n|${allCells.join("||")}`;

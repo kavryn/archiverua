@@ -32,6 +32,11 @@ describe("buildRow", () => {
     const row = buildRow("4а", ["Name"], 2);
     expect(row).toBe("|-\n|[[/4а/]]||Name");
   });
+
+  it("uses custom link prefix", () => {
+    const row = buildRow("Р-34", ["Назва"], 2, "../");
+    expect(row).toBe("|-\n|[[../Р-34/]]||Назва");
+  });
 });
 
 describe("parseWikiTable", () => {
@@ -67,6 +72,24 @@ describe("parseWikiTable", () => {
     const content = `{| class="wikitable sortable"\n!A!!B!!C!!D!!E\n|}`;
     const parsed = parseWikiTable(content);
     expect(parsed.columnCount).toBe(5);
+  });
+
+  it("detects column count with || separators", () => {
+    const content = `{| class="wikitable sortable"\n!A||B||C||D\n|}`;
+    const parsed = parseWikiTable(content);
+    expect(parsed.columnCount).toBe(4);
+  });
+
+  it("uses custom idRegex", () => {
+    const content = makeTable("!A!!B", "|-\n|[[../Р-1/]]||val");
+    const parsed = parseWikiTable(content, { idRegex: /\[\[\.\.\/([^/]+)\/\]\]/ });
+    expect(parsed.rows[0].id).toBe("Р-1");
+  });
+
+  it("returns null id when custom idRegex does not match", () => {
+    const content = makeTable("!A!!B", "|-\n|[[/1/]]||val");
+    const parsed = parseWikiTable(content, { idRegex: /\[\[\.\.\/([^/]+)\/\]\]/ });
+    expect(parsed.rows[0].id).toBeNull();
   });
 
   it("extracts alphanumeric ids", () => {
