@@ -4,7 +4,7 @@ import {
   getWikisourcePageContent,
   editWikisourcePage,
 } from "@/lib/wikimedia";
-import { buildOrUpdateOpysContent } from "@/lib/wikisource-opys";
+import { buildOrUpdateFondContent } from "@/lib/wikisource-fond";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -14,16 +14,16 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { archiveAbbr, fond, opis, sprava, spravaName, opisName, dates } = body;
+  const { archiveAbbr, fond, opis, opisName, fondName } = body;
 
-  if (!archiveAbbr || !fond || !opis || !sprava) {
+  if (!archiveAbbr || !fond || !opis) {
     return NextResponse.json(
       { error: "Відсутні обов'язкові поля" },
       { status: 400 }
     );
   }
 
-  const title = `Архів:${archiveAbbr}/${fond}/${opis}`;
+  const title = `Архів:${archiveAbbr}/${fond}`;
 
   try {
     const existingContent = await getWikisourcePageContent(
@@ -31,14 +31,12 @@ export async function POST(request: Request) {
       title
     );
 
-    const content = buildOrUpdateOpysContent(existingContent, {
+    const content = buildOrUpdateFondContent(existingContent, {
       archiveAbbr,
       fond,
       opis,
-      sprava: String(sprava),
-      spravaName: spravaName ?? "",
       opisName: opisName ?? "",
-      dates: dates ?? "",
+      fondName: fondName ?? "",
     });
 
     const csrfToken = await getWikisourceCsrfToken(session.accessToken);
@@ -48,7 +46,7 @@ export async function POST(request: Request) {
       csrfToken,
       title,
       content,
-      summary: `Додано справу ${sprava}`,
+      summary: `Додано опис ${opis}`,
     });
 
     return NextResponse.json({
