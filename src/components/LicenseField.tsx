@@ -13,6 +13,7 @@ export interface Option {
   label: string;
   template: string;
   helpText: string;
+  sort: number;
 }
 
 export const ALL_OPTIONS: Option[] = [
@@ -20,34 +21,46 @@ export const ALL_OPTIONS: Option[] = [
     value: "{{PD-scan|PD-old-assumed-expired}}",
     template: "PD-old-assumed-expired",
     label: `Документ створений до 1 січня ${THRESHOLD_120} року (автор невідомий або дата смерті невідома)`,
-    helpText: `Ситуація з авторським правом на цей твір теоретично невизначена, оскільки в країні походження авторське право триває 70 років після смерті автора, а дата смерті автора невідома. Однак дата створення твору була понад 120 років тому, і тому є розумним припущення, що термін дії авторського права закінчився. Не використовуйте цей шаблон, якщо дата смерті автора відома.`
+    helpText: `Ситуація з авторським правом на цей твір теоретично невизначена, оскільки в країні походження
+    авторське право триває 70 років після смерті автора, а дата смерті автора невідома. Однак дата створення твору була понад 120 років тому, і тому є розумним припущення, що термін дії авторського права закінчився. Не використовуйте цей шаблон, якщо дата смерті автора відома.`,
+    sort: 1
   },
   {
     value: "{{PD-scan|PD-UA-exempt}}",
     template: "PD-UA-exempt",
     label: "Офіційний документ державних органів",
     helpText: `Ця робота перебуває в суспільному надбанні, оскільки відповідно до статті 8, пункту 3 Закону України
-    про авторське право і суміжні права не охороняються авторським правом: акти органів державної влади, органів місцевого самоврядування, офіційні документи політичного, законодавчого, адміністративного і судового характеру (закони, укази, постанови, рішення, державні стандарти тощо), також їх проекти та офіційні переклади;`
+    про авторське право і суміжні права не охороняються авторським правом: акти органів державної влади, органів
+    місцевого самоврядування, офіційні документи політичного, законодавчого, адміністративного і судового характеру (закони, укази, постанови, рішення, державні стандарти тощо), також їх проекти та офіційні переклади;`,
+    sort: 2
   },
   {
     value: "{{PD-scan|PD-RusEmpire}}",
     template: "PD-RusEmpire",
     label: "Робота опублікована в Російській імперії до 7 листопада 1917 року",
-    helpText: "Ця робота перебуває в суспільному надбанні в Росії відповідно до статті 1256 Цивільного Кодексу Російської Федерації. Ця робота була опублікована на території Російської імперії (Російської республіки), за винятком територій Великого князівства Фінляндського (Великое княжество Финляндское) та Царства Польського (Царство Польское) до 7 листопада 1917 і не була опублікована на території Радянської Росії чи інших держав протягом 30 днів після першої публікації."
+    helpText: `Ця робота перебуває в суспільному надбанні в Росії відповідно до статті 1256 Цивільного Кодексу
+    Російської Федерації. Ця робота була опублікована на території Російської імперії (Російської республіки), за
+    винятком територій Великого князівства Фінляндського (Великое княжество Финляндское) та Царства Польського
+    (Царство Польское) до 7 листопада 1917 і не була опублікована на території Радянської Росії чи інших держав протягом 30 днів після першої публікації.`,
+    sort: 5
   },
   {
     value: "{{PD-scan|PD-Ukraine}}",
     template: "PD-Ukraine",
     label: `Робота опублікована в Україні чи УРСР до 1 січня ${THRESHOLD_70} року (автор невідомий або помер до цієї дати)`,
     helpText: `Цей файл є твором, створеним в Україні чи Українській РСР, і перебуває в суспільному надбанні в
-    Україні, оскільки він був опублікований до 1 січня ${THRESHOLD_70} року і його творець (якщо відомий) помер до цієї дати.`
+    Україні, оскільки він був опублікований до 1 січня ${THRESHOLD_70} року і його творець (якщо відомий) помер до
+    цієї дати.`,
+    sort: 3
   },
   {
     value: "{{PD-scan|PD-anon-70-EU}}",
     template: "PD-anon-70-EU",
     label: `Анонімна робота, опублікована у країні ЄС до 1 січня ${THRESHOLD_70} року`,
     helpText: `This image (or other media file) is in the public domain because its copyright has expired and its
-    author is anonymous. This applies to the European Union and those countries with a copyright term of 70 years after the work was made available to the public and the author never disclosed their identity.`
+    author is anonymous. This applies to the European Union and those countries with a copyright term of 70 years
+    after the work was made available to the public and the author never disclosed their identity.`,
+    sort: 4
   }
 ];
 
@@ -125,6 +138,11 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
 
   const options = getAvailableOptions(endYear, dateState.dateMode, author);
 
+  const sortByOptionOrder = (vals: string[]) => {
+    const sortMap = new Map(ALL_OPTIONS.map((o) => [o.value, o.sort]));
+    return [...vals].sort((a, b) => (sortMap.get(a) ?? 0) - (sortMap.get(b) ?? 0));
+  };
+
   function getTriggerLabel(): string {
     if (value.length === 0) return "— Оберіть ліцензію —";
     if (value.length === 1) {
@@ -135,7 +153,7 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
   }
 
   return (
-    <Listbox value={value} onChange={onChange} multiple disabled={disabled}>
+    <Listbox value={value} onChange={(v: string[]) => onChange(sortByOptionOrder(v))} multiple disabled={disabled}>
       <Listbox.Button
         className={`input flex items-center justify-between text-left ${
           value.length === 0 ? "text-zinc-400" : ""
