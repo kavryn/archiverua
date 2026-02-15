@@ -315,6 +315,80 @@ export async function createWikisourcePage(params: CreateWikisourcePageParams): 
   return `${WIKISOURCE_BASE}/wiki/${encodeURIComponent(params.title)}`;
 }
 
+export async function getWikisourcePageContent(
+  accessToken: string,
+  title: string
+): Promise<string | null> {
+  const params = new URLSearchParams({
+    action: "query",
+    prop: "revisions",
+    rvprop: "content",
+    rvslots: "main",
+    titles: title,
+    format: "json",
+  });
+
+  const res = await fetch(`${WIKISOURCE_API_URL}?${params}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": "archiverua/1.0",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch Wikisource page: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const pages = data?.query?.pages;
+  if (!pages) return null;
+
+  const page = Object.values(pages)[0] as Record<string, unknown>;
+  if ("missing" in page) return null;
+
+  const revisions = page?.revisions as Array<Record<string, unknown>> | undefined;
+  const firstRev = revisions?.[0];
+  const slots = firstRev?.slots as Record<string, Record<string, string>> | undefined;
+  return slots?.main?.["*"] ?? (firstRev?.["*"] as string) ?? null;
+}
+
+export interface EditWikisourcePageParams {
+  accessToken: string;
+  csrfToken: string;
+  title: string;
+  content: string;
+  summary: string;
+}
+
+export async function editWikisourcePage(params: EditWikisourcePageParams): Promise<string> {
+  const fd = new FormData();
+  fd.append("action", "edit");
+  fd.append("format", "json");
+  fd.append("title", params.title);
+  fd.append("text", params.content);
+  fd.append("summary", params.summary);
+  fd.append("token", params.csrfToken);
+
+  const res = await fetch(WIKISOURCE_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.accessToken}`,
+    },
+    body: fd,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Wikisource edit failed: ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data.error) {
+    throw new Error(data.error.info ?? "Wikisource edit error");
+  }
+
+  return `${WIKISOURCE_BASE}/wiki/${encodeURIComponent(params.title)}`;
+}
+
 export function buildDescription(params: DescriptionParams): string {
   const dateStr = params.isArbitraryDate
     ? `${params.dateFrom}–${params.dateTo}`
