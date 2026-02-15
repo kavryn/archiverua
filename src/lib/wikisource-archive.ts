@@ -14,6 +14,7 @@ export interface ArchivePageParams {
 }
 
 export function extractFondPrefix(fond: string): string {
+  // Matches Cyrillic/Latin prefix before dash: "Р-34" → "Р", "Н-3777" → "Н"
   const match = fond.match(/^([А-ЯҐЄІЇA-Z]+)-/);
   return match ? match[1] : "Д";
 }
@@ -46,6 +47,7 @@ export function buildNewArchivePage(params: ArchivePageParams): string {
   const columnCount = 4;
 
   const prefix = extractFondPrefix(params.fond);
+  // Strip prefix+dash to get numeric part: "Р-34" → "34", "1" → "1"
   const numericPart = prefix === "Д" ? params.fond : params.fond.replace(/^[А-ЯҐЄІЇA-Z]+-/, "");
   const isFirst = numericPart === "1";
 
@@ -61,10 +63,12 @@ export function buildNewArchivePage(params: ArchivePageParams): string {
 }
 
 export function parseArchivePage(content: string): ParsedWikiTable {
+  // Matches [[../Р-34/]] → "Р-34", [[../1/]] → "1"
   return parseWikiTable(content, { idRegex: /\[\[\.\.\/([^/]+)\/\]\]/ });
 }
 
 export function fondCompare(a: string, b: string): number {
+  // Strip prefix+dash for numeric comparison: "Р-34" → "34", "5" → "5"
   const stripPrefix = (s: string) => s.replace(/^[А-ЯҐЄІЇA-Z]+-/, "");
   return naturalCompare(stripPrefix(a), stripPrefix(b));
 }

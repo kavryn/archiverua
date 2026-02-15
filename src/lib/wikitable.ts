@@ -13,7 +13,10 @@ export interface ParsedWikiTable {
 }
 
 export interface ParseOptions {
-  idRegex?: RegExp; // default: /\[\[\/([^/]+)\/\]\]/
+  // Regex to extract row ID from wikilink. Must have capture group 1.
+  // Default matches [[/1/]], [[/4а/]] → "1", "4а"
+  // Archive uses /\[\[\.\.\/([^/]+)\/\]\]/ to match [[../Р-34/]] → "Р-34"
+  idRegex?: RegExp;
 }
 
 export function parseWikiTable(content: string, options?: ParseOptions): ParsedWikiTable {
@@ -47,6 +50,7 @@ export function parseWikiTable(content: string, options?: ParseOptions): ParsedW
   }
 
   const headerLine = lines[headerLineIdx];
+  // Count column separators: "!!" in "!№!!Назва" or "||" in "!№||Назва"
   const columnCount = (headerLine.match(/!!|\|\|/g) || []).length + 1;
 
   const rows: ParsedRow[] = [];
@@ -60,6 +64,7 @@ export function parseWikiTable(content: string, options?: ParseOptions): ParsedW
         i++;
       }
       const raw = rowLines.join("\n");
+      // Matches [[/1/]], [[/4а/]] by default; archive overrides to match [[../Р-34/]]
       const idRegex = options?.idRegex ?? /\[\[\/([^/]+)\/\]\]/;
       const idMatch = raw.match(idRegex);
       const id = idMatch ? idMatch[1] : null;
