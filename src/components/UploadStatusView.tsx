@@ -74,9 +74,12 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
             </a>
           )}
           {entry.status === "duplicate" && (
-            <a href={entry.duplicateUrl} target="_blank" rel="noreferrer" className="text-yellow-700 hover:underline break-all">
-              {entry.duplicateUrl}
-            </a>
+            <span className="text-yellow-700">
+              Файл з таким вмістом вже існує у Вікісховищі.{" "}
+              <a href={entry.duplicateUrl} target="_blank" rel="noreferrer" className="hover:underline break-all">
+                Переглянути існуючий файл
+              </a>
+            </span>
           )}
           {entry.status === "error" && (
             <span className="text-red-600">{entry.errorMessage}</span>
@@ -87,7 +90,9 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
       {uploadEnded && (
         <div className="flex items-center gap-2">
           {wikisourceIcon}
-          <span className="text-sm text-gray-700">Оновлення сторінки у Вікіджерелах</span>
+          <span className={`text-sm ${entry.status === "duplicate" ? "text-gray-400 line-through" : "text-gray-700"}`}>
+            Оновлення сторінки у Вікіджерелах
+          </span>
         </div>
       )}
     </div>
