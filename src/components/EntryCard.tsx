@@ -37,9 +37,6 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
   const effectiveFileName = getEffectiveFileName(entry);
   const fileNameHasInvalidChars = hasInvalidFileNameChars(entry);
 
-  const uploadedMB = (entry.uploadedBytes / (1024 * 1024)).toFixed(1);
-  const totalMB = (entry.totalBytes / (1024 * 1024)).toFixed(1);
-
   useFileNameCheck(entry, onUpdate);
 
   return (
@@ -244,55 +241,6 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
           }
         />
       </div>
-
-      {/* Upload status */}
-      {entry.status === "uploading" && entry.totalChunks > 0 && (
-        <div className="flex flex-col gap-1">
-          <div className="text-base text-zinc-600">
-            Чанк {entry.currentChunk} з {entry.totalChunks} — {entry.uploadProgress}%
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-200">
-            <div
-              style={{ width: `${entry.uploadProgress}%` }}
-              className="h-2 rounded-full bg-blue-600 transition-all duration-300"
-            />
-          </div>
-          <div className="text-sm text-zinc-500">
-            {uploadedMB} МБ з {totalMB} МБ
-          </div>
-        </div>
-      )}
-
-      {entry.status === "uploading" && entry.totalChunks === 0 && (
-        <p className="text-base text-zinc-600">Завантаження…</p>
-      )}
-
-      {entry.status === "success" && (
-        <p className="text-base text-green-700">
-          Успішно!{" "}
-          <a href={entry.resultUrl} target="_blank" rel="noopener noreferrer" className="underline">
-            Переглянути файл
-          </a>
-        </p>
-      )}
-
-      {entry.status === "duplicate" && (
-        <p className="text-base text-yellow-700">
-          Файл з таким вмістом вже існує у Вікісховищі.{" "}
-          <a
-            href={entry.duplicateUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            Переглянути існуючий файл
-          </a>
-        </p>
-      )}
-
-      {entry.status === "error" && (
-        <p className="text-base text-red-600">{entry.errorMessage}</p>
-      )}
 
       {/* Назва файлу */}
       <div>
