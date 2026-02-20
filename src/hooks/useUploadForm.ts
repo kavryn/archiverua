@@ -189,7 +189,7 @@ export function useUploadForm() {
 
     for (let i = 0; i < current.length; i++) {
       const entry = current[i];
-      if (entry.status === "success") continue;
+      if (entry.status === "success" || entry.status === "duplicate") continue;
       updateEntry(i, { status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "" });
       try {
         const result = await uploadFile(entry, (progress) => updateEntry(i, progress));
