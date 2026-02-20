@@ -1,4 +1,5 @@
 import { CHUNK_SIZE, LARGE_FILE_THRESHOLD, MAX_CHUNK_RETRIES, type FileEntry, getEffectiveFileName } from "@/types/upload-form";
+import { buildWikisourceDateStr } from "@/lib/wikimedia";
 
 async function uploadChunkWithRetry(
   chunkFd: FormData,
@@ -118,5 +119,40 @@ export async function uploadFile(
       return { status: "error", errorMessage: data.error };
     }
     return { status: "success", url: data.url! };
+  }
+}
+
+export async function callWikisourceAll(entry: FileEntry): Promise<void> {
+  if (!entry.archive) return;
+
+  const dates = buildWikisourceDateStr(
+    entry.dateFrom,
+    entry.dateTo,
+    entry.dateMode === "other"
+  );
+
+  const body = {
+    archiveAbbr: entry.archive.abbr,
+    fond: entry.fond,
+    opis: entry.opis,
+    sprava: entry.sprava,
+    spravaName: entry.spravaName,
+    opisName: entry.opisName.fetched || entry.opisName.value,
+    fondName: entry.fondName.fetched || entry.fondName.value,
+    archiveName: entry.archive.name,
+    dates,
+    updateFond: true,
+    updateArchive: true,
+  };
+
+  const res = await fetch("/api/wikisource-all", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? `wikisource-all failed: ${res.status}`);
   }
 }

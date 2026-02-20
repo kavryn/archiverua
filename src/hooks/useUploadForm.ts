@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { makeEntry, isEntryValid, fetchWikisourceName, emptyNameState, emptySpravaWikisource, type FileEntry } from "@/types/upload-form";
-import { uploadFile } from "@/lib/upload";
+import { uploadFile, callWikisourceAll } from "@/lib/upload";
 import type { Archive } from "@/lib/archives";
 
 /**
@@ -192,6 +192,11 @@ export function useUploadForm() {
         const result = await uploadFile(entry, (progress) => updateEntry(i, progress));
         if (result.status === "success") {
           updateEntry(i, { status: "success", resultUrl: result.url });
+          try {
+            await callWikisourceAll(entry);
+          } catch {
+            // wikisource-all failure must not affect upload status
+          }
         } else if (result.status === "duplicate") {
           updateEntry(i, { status: "duplicate", duplicateUrl: result.duplicateUrl });
         } else {
