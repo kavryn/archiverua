@@ -1,5 +1,11 @@
 import { CHUNK_SIZE, LARGE_FILE_THRESHOLD, MAX_CHUNK_RETRIES, type FileEntry, getEffectiveFileName } from "@/types/upload-form";
-import { buildWikisourceDateStr } from "@/lib/wikimedia";
+
+function buildWikisourceDateStr(dateFrom: string, dateTo: string, isArbitraryDate: boolean): string {
+  if (isArbitraryDate || !dateTo || dateFrom === dateTo) {
+    return dateFrom;
+  }
+  return `${dateFrom}-${dateTo}`;
+}
 
 async function uploadChunkWithRetry(
   chunkFd: FormData,
