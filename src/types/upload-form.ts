@@ -36,6 +36,12 @@ export const emptySpravaWikisource: SpravaWikisourceState = {
   lastFetchedTitle: "",
 };
 
+export interface FileNameCheckState {
+  loading: boolean;
+  exists: boolean | null;
+  lastCheckedName: string;
+}
+
 export interface FileEntry {
   file: File;
   archive: Archive | null;
@@ -53,6 +59,7 @@ export interface FileEntry {
   spravaWikisource: SpravaWikisourceState;
   fileName: string;
   fileNameEdited: boolean;
+  fileNameCheck: FileNameCheckState;
   status: "idle" | "uploading" | "success" | "error" | "duplicate";
   errorMessage: string;
   resultUrl: string;
@@ -83,6 +90,7 @@ export function makeEntry(file: File): FileEntry {
     spravaWikisource: emptySpravaWikisource,
     fileName: "",
     fileNameEdited: false,
+    fileNameCheck: { loading: false, exists: null, lastCheckedName: "" },
     status: "idle",
     errorMessage: "",
     resultUrl: "",
@@ -112,6 +120,16 @@ export function getEffectiveFileName(entry: FileEntry): string {
   return buildAutoFileName(entry);
 }
 
+export function isFileNameEnabled(entry: FileEntry): boolean {
+  return (
+    entry.archive !== null &&
+    entry.fond.trim() !== "" &&
+    entry.opis.trim() !== "" &&
+    entry.sprava.trim() !== "" &&
+    entry.spravaName.trim() !== ""
+  );
+}
+
 export function isEntryValid(entry: FileEntry): boolean {
   const dateEnabled = entry.sprava.trim() !== "";
   const datesValid =
@@ -127,13 +145,9 @@ export function isEntryValid(entry: FileEntry): boolean {
 
   const spravaNameEmpty = dateEnabled && entry.spravaName.trim() === "";
 
-  const fileNameEnabled =
-    entry.archive !== null &&
-    entry.fond.trim() !== "" &&
-    entry.opis.trim() !== "" &&
-    entry.sprava.trim() !== "" &&
-    entry.spravaName.trim() !== "";
+  const fileNameEnabled = isFileNameEnabled(entry);
   const fileNameEmpty = fileNameEnabled && getEffectiveFileName(entry).trim() === "";
+  const fileNameConflict = fileNameEnabled && entry.fileNameCheck.exists === true;
 
   return (
     entry.archive !== null &&
@@ -143,7 +157,8 @@ export function isEntryValid(entry: FileEntry): boolean {
     datesValid &&
     !fondNameEmpty &&
     !spravaNameEmpty &&
-    !fileNameEmpty
+    !fileNameEmpty &&
+    !fileNameConflict
   );
 }
 

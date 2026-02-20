@@ -206,6 +206,7 @@ export function useUploadForm() {
   const isAnyUploading = fileStates.some((e) => e.status === "uploading");
   const allSucceeded = fileStates.length > 0 && fileStates.every((e) => e.status === "success");
   const hasErrors = fileStates.some((e) => e.submitted && !isEntryValid(e));
+  const hasFileNameConflict = fileStates.some((e) => e.fileNameCheck.exists === true);
 
   return {
     step,
@@ -214,6 +215,7 @@ export function useUploadForm() {
     isAnyUploading,
     allSucceeded,
     hasErrors,
+    hasFileNameConflict,
     updateEntry,
     handleAddFiles,
     handleRemoveFile,

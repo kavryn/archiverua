@@ -3,7 +3,8 @@ import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
 import LicenseField from "./LicenseField";
 import LicenseHelpPopup from "./LicenseHelpPopup";
-import { type FileEntry, buildAutoFileName, getEffectiveFileName } from "@/types/upload-form";
+import { type FileEntry, buildAutoFileName, getEffectiveFileName, isFileNameEnabled } from "@/types/upload-form";
+import { useFileNameCheck } from "@/hooks/useFileNameCheck";
 import type { Archive } from "@/lib/archives";
 
 interface EntryCardProps {
@@ -31,17 +32,14 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
     ? `https://uk.wikisource.org/wiki/${encodeURIComponent(entry.spravaWikisource.lastFetchedTitle)}`
     : "";
 
-  const fileNameEnabled =
-    entry.archive !== null &&
-    entry.fond.trim() !== "" &&
-    entry.opis.trim() !== "" &&
-    entry.sprava.trim() !== "" &&
-    entry.spravaName.trim() !== "";
+  const fileNameEnabled = isFileNameEnabled(entry);
   const autoFileName = buildAutoFileName(entry);
   const effectiveFileName = getEffectiveFileName(entry);
 
   const uploadedMB = (entry.uploadedBytes / (1024 * 1024)).toFixed(1);
   const totalMB = (entry.totalBytes / (1024 * 1024)).toFixed(1);
+
+  useFileNameCheck(entry, onUpdate);
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-zinc-200 p-4">
@@ -315,8 +313,15 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
           }
           className="input"
         />
+        {entry.fileNameCheck.loading && (
+          <p className="mt-1 text-sm text-zinc-400">Перевірка…</p>
+        )}
         <FieldError
           show={entry.submitted && fileNameEnabled && effectiveFileName.trim() === ""}
+        />
+        <FieldError
+          show={fileNameEnabled && entry.fileNameCheck.exists === true}
+          message="Файл з такою назвою вже існує на Вікісховищі"
         />
       </div>
     </div>

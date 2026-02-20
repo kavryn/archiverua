@@ -12,6 +12,7 @@ export default function UploadForm() {
     isAnyUploading,
     allSucceeded,
     hasErrors,
+    hasFileNameConflict,
     updateEntry,
     handleAddFiles,
     handleRemoveFile,
@@ -64,7 +65,7 @@ export default function UploadForm() {
 
       <button
         type="submit"
-        disabled={isAnyUploading || allSucceeded}
+        disabled={isAnyUploading || allSucceeded || hasFileNameConflict}
         className="btn-primary"
       >
         {isAnyUploading ? "Завантаження…" : "Завантажити"}
