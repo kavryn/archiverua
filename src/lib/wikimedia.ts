@@ -260,61 +260,6 @@ export function buildWikisourceDateStr(
   return `${dateFrom}-${dateTo}`;
 }
 
-export function buildWikisourcePageContent(
-  spravaName: string,
-  dateStr: string,
-  filename: string
-): string {
-  return `{{Архіви/справа
- | назва = ${spravaName}
- | рік = ${dateStr}
- | link_commons = File:${filename}
- | примітки =
-}}`;
-}
-
-export interface CreateWikisourcePageParams {
-  accessToken: string;
-  csrfToken: string;
-  title: string;
-  content: string;
-  summary: string;
-}
-
-export async function createWikisourcePage(params: CreateWikisourcePageParams): Promise<string | null> {
-  const fd = new FormData();
-  fd.append("action", "edit");
-  fd.append("format", "json");
-  fd.append("title", params.title);
-  fd.append("createonly", "1");
-  fd.append("text", params.content);
-  fd.append("summary", params.summary);
-  fd.append("token", params.csrfToken);
-
-  const res = await fetch(WIKISOURCE_API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${params.accessToken}`,
-    },
-    body: fd,
-  });
-
-  if (!res.ok) {
-    throw new Error(`Wikisource edit failed: ${res.status}`);
-  }
-
-  const data = await res.json();
-
-  if (data.error) {
-    if (data.error.code === "articleexists") {
-      return null;
-    }
-    throw new Error(data.error.info ?? "Wikisource edit error");
-  }
-
-  return `${WIKISOURCE_BASE}/wiki/${encodeURIComponent(params.title)}`;
-}
-
 export async function getWikisourcePageContent(
   accessToken: string,
   title: string

@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { ARCHIVES } from "@/lib/archives";
-import { getCsrfToken, uploadFile, commitChunkedUpload, buildDescription, DuplicateFileError, getWikisourceCsrfToken, buildWikisourceDateStr, buildWikisourcePageContent, createWikisourcePage } from "@/lib/wikimedia";
+import { getCsrfToken, uploadFile, commitChunkedUpload, buildDescription, DuplicateFileError } from "@/lib/wikimedia";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -64,26 +64,7 @@ export async function POST(request: Request) {
       ? await commitChunkedUpload({ accessToken: session.accessToken, csrfToken, filekey: filekey!, filename, description, comment })
       : await uploadFile({ accessToken: session.accessToken, csrfToken, filename, file: file!, description, comment });
 
-    let wikisourceUrl: string | null = null;
-    if (spravaName) {
-      try {
-        const wsCsrfToken = await getWikisourceCsrfToken(session.accessToken);
-        const pageTitle = `Архів:${archiveAbbr}/${fond}/${opis}/${sprava}`;
-        const dateStr = buildWikisourceDateStr(dateFrom, dateTo, isArbitraryDate);
-        const content = buildWikisourcePageContent(spravaName, dateStr, filename);
-        wikisourceUrl = await createWikisourcePage({
-          accessToken: session.accessToken,
-          csrfToken: wsCsrfToken,
-          title: pageTitle,
-          content,
-          summary: `Сторінку створено через Вікіархіватор`,
-        });
-      } catch {
-        // best-effort, don't fail the upload
-      }
-    }
-
-    return NextResponse.json({ success: true, url, wikisourceUrl });
+    return NextResponse.json({ success: true, url });
   } catch (err) {
     if (err instanceof DuplicateFileError) {
       return NextResponse.json({ error: err.message, duplicateUrl: err.duplicateUrl }, { status: 409 });
