@@ -148,8 +148,9 @@ export async function callWikisourceAll(entry: FileEntry): Promise<void> {
     archiveName: entry.archive.name,
     dates,
     publicFileName: getEffectiveFileName(entry),
-    updateFond: true,
-    updateArchive: true,
+    updateOpys: !entry.spravaWikisource.exists || !entry.opisName.exists,
+    updateFond: !entry.opisName.exists || !entry.fondName.exists,
+    updateArchive: !entry.fondName.exists,
   };
 
   const res = await fetch("/api/wikisource-all", {

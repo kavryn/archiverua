@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     fondName,
     archiveName,
     publicFileName,
+    updateOpys,
     updateFond,
     updateArchive,
   } = body;
@@ -50,17 +51,20 @@ export async function POST(request: Request) {
       publicFileName,
     });
 
-    const opysResult = await updateOpysPage({
-      accessToken: session.accessToken,
-      csrfToken,
-      archiveAbbr,
-      fond,
-      opis,
-      sprava: String(sprava),
-      spravaName: spravaName ?? "",
-      opisName: opisName ?? "",
-      dates: dates ?? "",
-    });
+    let opysResult: { url: string; created: boolean } | undefined;
+    if (updateOpys) {
+      opysResult = await updateOpysPage({
+        accessToken: session.accessToken,
+        csrfToken,
+        archiveAbbr,
+        fond,
+        opis,
+        sprava: String(sprava),
+        spravaName: spravaName ?? "",
+        opisName: opisName ?? "",
+        dates: dates ?? "",
+      });
+    }
 
     let fondResult: { url: string; created: boolean } | undefined;
     if (updateFond) {
@@ -90,7 +94,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       sprava: spravaResult,
-      opys: opysResult,
+      ...(opysResult && { opys: opysResult }),
       ...(fondResult && { fond: fondResult }),
       ...(archiveResult && { archive: archiveResult }),
     });
