@@ -88,11 +88,37 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
       </div>
 
       {uploadEnded && (
-        <div className="flex items-center gap-2">
-          {wikisourceIcon}
-          <span className={`text-sm ${entry.status === "duplicate" ? "text-gray-400 line-through" : "text-gray-700"}`}>
-            Оновлення сторінки у Вікіджерелах
-          </span>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            {wikisourceIcon}
+            <span className={`text-sm ${entry.status === "duplicate" ? "text-gray-400 line-through" : "text-gray-700"}`}>
+              Оновлення сторінок у Вікіджерелах
+            </span>
+          </div>
+          {entry.wikisourceStatus === "success" && entry.wikisourceResult && (
+            <div className="ml-7 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+              {entry.wikisourceResult.sprava && (
+                <a href={entry.wikisourceResult.sprava.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                  Переглянути справу
+                </a>
+              )}
+              {entry.wikisourceResult.opys && (
+                <a href={entry.wikisourceResult.opys.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                  Переглянути опис
+                </a>
+              )}
+              {entry.wikisourceResult.fond && (
+                <a href={entry.wikisourceResult.fond.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                  Переглянути фонд
+                </a>
+              )}
+              {entry.wikisourceResult.archive && (
+                <a href={entry.wikisourceResult.archive.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                  Переглянути архів
+                </a>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

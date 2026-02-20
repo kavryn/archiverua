@@ -128,8 +128,16 @@ export async function uploadFile(
   }
 }
 
-export async function callWikisourceAll(entry: FileEntry): Promise<void> {
-  if (!entry.archive) return;
+export type WikisourcePageResult = { url: string; created: boolean };
+export type WikisourceAllResult = {
+  sprava: WikisourcePageResult;
+  opys?: WikisourcePageResult;
+  fond?: WikisourcePageResult;
+  archive?: WikisourcePageResult;
+};
+
+export async function callWikisourceAll(entry: FileEntry): Promise<WikisourceAllResult> {
+  if (!entry.archive) throw new Error("No archive selected");
 
   const dates = buildWikisourceDateStr(
     entry.dateFrom,
@@ -163,4 +171,7 @@ export async function callWikisourceAll(entry: FileEntry): Promise<void> {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? `wikisource-all failed: ${res.status}`);
   }
+
+  const data = await res.json();
+  return data as WikisourceAllResult;
 }

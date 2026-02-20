@@ -197,8 +197,8 @@ export function useUploadForm() {
           updateEntry(i, { status: "success", resultUrl: result.url });
           try {
             updateEntry(i, { wikisourceStatus: "pending" });
-            await callWikisourceAll(entry);
-            updateEntry(i, { wikisourceStatus: "success" });
+            const wikisourceResult = await callWikisourceAll(entry);
+            updateEntry(i, { wikisourceStatus: "success", wikisourceResult });
           } catch {
             updateEntry(i, { wikisourceStatus: "error" });
           }

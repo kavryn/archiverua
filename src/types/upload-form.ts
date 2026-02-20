@@ -62,6 +62,12 @@ export interface FileEntry {
   fileNameCheck: FileNameCheckState;
   status: "idle" | "uploading" | "success" | "error" | "duplicate";
   wikisourceStatus: "idle" | "pending" | "success" | "error";
+  wikisourceResult: {
+    sprava?: { url: string; created: boolean };
+    opys?: { url: string; created: boolean };
+    fond?: { url: string; created: boolean };
+    archive?: { url: string; created: boolean };
+  } | null;
   errorMessage: string;
   resultUrl: string;
   duplicateUrl: string;
@@ -94,6 +100,7 @@ export function makeEntry(file: File): FileEntry {
     fileNameCheck: { loading: false, exists: null, lastCheckedName: "" },
     status: "idle",
     wikisourceStatus: "idle",
+    wikisourceResult: null,
     errorMessage: "",
     resultUrl: "",
     duplicateUrl: "",
