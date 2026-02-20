@@ -139,6 +139,10 @@ export function isFileNameEnabled(entry: FileEntry): boolean {
   );
 }
 
+export function hasInvalidFileNameChars(entry: FileEntry): boolean {
+  return isFileNameEnabled(entry) && /[:/\\]/.test(getEffectiveFileName(entry));
+}
+
 export function isEntryValid(entry: FileEntry): boolean {
   const dateEnabled = entry.sprava.trim() !== "";
   const datesValid =
@@ -157,6 +161,7 @@ export function isEntryValid(entry: FileEntry): boolean {
   const fileNameEnabled = isFileNameEnabled(entry);
   const fileNameEmpty = fileNameEnabled && getEffectiveFileName(entry).trim() === "";
   const fileNameConflict = fileNameEnabled && entry.fileNameCheck.exists === true;
+  const fileNameHasInvalidChars = hasInvalidFileNameChars(entry);
 
   return (
     entry.archive !== null &&
@@ -167,7 +172,8 @@ export function isEntryValid(entry: FileEntry): boolean {
     !fondNameEmpty &&
     !spravaNameEmpty &&
     !fileNameEmpty &&
-    !fileNameConflict
+    !fileNameConflict &&
+    !fileNameHasInvalidChars
   );
 }
 

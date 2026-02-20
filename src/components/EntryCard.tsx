@@ -3,7 +3,7 @@ import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
 import LicenseField from "./LicenseField";
 import LicenseHelpPopup from "./LicenseHelpPopup";
-import { type FileEntry, buildAutoFileName, getEffectiveFileName, isFileNameEnabled } from "@/types/upload-form";
+import { type FileEntry, buildAutoFileName, getEffectiveFileName, hasInvalidFileNameChars, isFileNameEnabled } from "@/types/upload-form";
 import { useFileNameCheck } from "@/hooks/useFileNameCheck";
 import type { Archive } from "@/lib/archives";
 
@@ -35,6 +35,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
   const fileNameEnabled = isFileNameEnabled(entry);
   const autoFileName = buildAutoFileName(entry);
   const effectiveFileName = getEffectiveFileName(entry);
+  const fileNameHasInvalidChars = hasInvalidFileNameChars(entry);
 
   const uploadedMB = (entry.uploadedBytes / (1024 * 1024)).toFixed(1);
   const totalMB = (entry.totalBytes / (1024 * 1024)).toFixed(1);
@@ -322,6 +323,10 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
         <FieldError
           show={fileNameEnabled && entry.fileNameCheck.exists === true}
           message="Файл з такою назвою вже існує на Вікісховищі"
+        />
+        <FieldError
+          show={fileNameHasInvalidChars}
+          message='Назва файлу не може містити символи: ":", "/" або "\"'
         />
       </div>
     </div>

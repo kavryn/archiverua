@@ -14,6 +14,22 @@ export class DuplicateFileError extends Error {
   }
 }
 
+const WARNING_MESSAGES: Record<string, string> = {
+  "duplicate-archive": "Файл з таким вмістом вже існував у Вікісховищі, але був видалений",
+  "was-deleted": "Файл з такою назвою вже існував, але був видалений",
+  "badfilename": "Некоректна назва файлу",
+};
+
+function throwOnUploadWarnings(warnings: Record<string, unknown> | undefined): void {
+  if (!warnings) return;
+  if (warnings.duplicate) {
+    throw new DuplicateFileError((warnings.duplicate as string[])[0]);
+  }
+  for (const key of Object.keys(warnings)) {
+    throw new Error(WARNING_MESSAGES[key] ?? `Помилка при завантаженні: ${key}`);
+  }
+}
+
 export async function getCsrfToken(accessToken: string): Promise<string> {
   const url = `${API_URL}?action=query&meta=tokens&type=csrf&format=json`;
   const res = await fetch(url, {
@@ -61,9 +77,7 @@ export async function uploadFile(params: UploadParams): Promise<string> {
 
   const data = await res.json();
 
-  if (data.upload?.warnings?.duplicate) {
-    throw new DuplicateFileError(data.upload.warnings.duplicate[0]);
-  }
+  throwOnUploadWarnings(data.upload?.warnings);
 
   if (data.error) {
     throw new Error(data.error.info ?? "Upload error");
@@ -195,9 +209,7 @@ export async function commitChunkedUpload(params: CommitUploadParams): Promise<s
 
   const data = await res.json();
 
-  if (data.upload?.warnings?.duplicate) {
-    throw new DuplicateFileError(data.upload.warnings.duplicate[0]);
-  }
+  throwOnUploadWarnings(data.upload?.warnings);
 
   if (data.error) {
     throw new Error(data.error.info ?? "Commit upload error");

@@ -5,7 +5,8 @@
       "name": "Next.js: debug client-side",
       "type": "chrome",
       "request": "launch",
-      "url": "http://localhost:3000"
+      "url": "http://localhost:3000",
+      "runtimeExecutable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
     },
     {
       "name": "Next.js: debug server-side",
@@ -20,7 +21,7 @@
       "program": "${workspaceFolder}/node_modules/.bin/next",
       "args": ["dev"],
       "serverReadyAction": {
-        "action": "debugWithEdge",
+        "action": "debugWithChrome",
         "killOnServerStop": true,
         "pattern": "- Local:.+(https?://.+)",
         "uriFormat": "%s",
