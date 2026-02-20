@@ -5,6 +5,7 @@ import {
   naturalCompare,
   type ParsedWikiTable,
 } from "./wikitable";
+import { getWikisourcePageContent, editWikisourcePage } from "./wikimedia";
 
 export type { ParsedWikiTable };
 
@@ -72,4 +73,25 @@ export function buildOrUpdateOpysContent(
   }
   const parsed = parseOpysPage(existingContent);
   return insertSpravaRow(parsed, params.sprava, params.spravaName, params.dates);
+}
+
+export interface UpdateOpysPageParams extends OpysPageParams {
+  accessToken: string;
+  csrfToken: string;
+}
+
+export async function updateOpysPage(
+  params: UpdateOpysPageParams
+): Promise<{ url: string; created: boolean }> {
+  const title = `Архів:${params.archiveAbbr}/${params.fond}/${params.opis}`;
+  const existingContent = await getWikisourcePageContent(params.accessToken, title);
+  const content = buildOrUpdateOpysContent(existingContent, params);
+  const url = await editWikisourcePage({
+    accessToken: params.accessToken,
+    csrfToken: params.csrfToken,
+    title,
+    content,
+    summary: `Додано справу ${params.sprava}`,
+  });
+  return { url, created: existingContent === null };
 }

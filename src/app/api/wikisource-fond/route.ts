@@ -1,10 +1,6 @@
 import { auth } from "@/auth";
-import {
-  getWikisourceCsrfToken,
-  getWikisourcePageContent,
-  editWikisourcePage,
-} from "@/lib/wikimedia";
-import { buildOrUpdateFondContent } from "@/lib/wikisource-fond";
+import { getWikisourceCsrfToken } from "@/lib/wikimedia";
+import { updateFondPage } from "@/lib/wikisource-fond";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -23,37 +19,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const title = `Архів:${archiveAbbr}/${fond}`;
-
   try {
-    const existingContent = await getWikisourcePageContent(
-      session.accessToken,
-      title
-    );
-
-    const content = buildOrUpdateFondContent(existingContent, {
+    const csrfToken = await getWikisourceCsrfToken(session.accessToken);
+    const result = await updateFondPage({
+      accessToken: session.accessToken,
+      csrfToken,
       archiveAbbr,
       fond,
       opis,
       opisName: opisName ?? "",
       fondName: fondName ?? "",
     });
-
-    const csrfToken = await getWikisourceCsrfToken(session.accessToken);
-
-    const url = await editWikisourcePage({
-      accessToken: session.accessToken,
-      csrfToken,
-      title,
-      content,
-      summary: `Додано опис ${opis}`,
-    });
-
-    return NextResponse.json({
-      success: true,
-      url,
-      created: existingContent === null,
-    });
+    return NextResponse.json({ success: true, ...result });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Помилка оновлення сторінки";

@@ -5,6 +5,7 @@ import {
   naturalCompare,
   type ParsedWikiTable,
 } from "./wikitable";
+import { getWikisourcePageContent, editWikisourcePage } from "./wikimedia";
 
 export interface FondPageParams {
   archiveAbbr: string;
@@ -65,4 +66,25 @@ export function buildOrUpdateFondContent(
   }
   const parsed = parseFondPage(existingContent);
   return insertOpisRow(parsed, params.opis, params.opisName);
+}
+
+export interface UpdateFondPageParams extends FondPageParams {
+  accessToken: string;
+  csrfToken: string;
+}
+
+export async function updateFondPage(
+  params: UpdateFondPageParams
+): Promise<{ url: string; created: boolean }> {
+  const title = `Архів:${params.archiveAbbr}/${params.fond}`;
+  const existingContent = await getWikisourcePageContent(params.accessToken, title);
+  const content = buildOrUpdateFondContent(existingContent, params);
+  const url = await editWikisourcePage({
+    accessToken: params.accessToken,
+    csrfToken: params.csrfToken,
+    title,
+    content,
+    summary: `Додано опис ${params.opis}`,
+  });
+  return { url, created: existingContent === null };
 }

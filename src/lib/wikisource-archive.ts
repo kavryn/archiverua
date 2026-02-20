@@ -5,6 +5,7 @@ import {
   naturalCompare,
   type ParsedWikiTable,
 } from "./wikitable";
+import { getWikisourcePageContent, editWikisourcePage } from "./wikimedia";
 
 export interface ArchivePageParams {
   archiveAbbr: string;
@@ -91,4 +92,25 @@ export function buildOrUpdateArchiveContent(
   }
   const parsed = parseArchivePage(existingContent);
   return insertFondRow(parsed, params.fond, params.fondName);
+}
+
+export interface UpdateArchivePageParams extends ArchivePageParams {
+  accessToken: string;
+  csrfToken: string;
+}
+
+export async function updateArchivePage(
+  params: UpdateArchivePageParams
+): Promise<{ url: string; created: boolean }> {
+  const title = getArchivePageTitle(params.archiveAbbr, params.fond);
+  const existingContent = await getWikisourcePageContent(params.accessToken, title);
+  const content = buildOrUpdateArchiveContent(existingContent, params);
+  const url = await editWikisourcePage({
+    accessToken: params.accessToken,
+    csrfToken: params.csrfToken,
+    title,
+    content,
+    summary: `Додано фонд ${params.fond}`,
+  });
+  return { url, created: existingContent === null };
 }
