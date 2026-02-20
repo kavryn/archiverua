@@ -116,7 +116,14 @@ export function buildAutoFileName(entry: FileEntry): string {
 }
 
 export function getEffectiveFileName(entry: FileEntry): string {
-  if (entry.fileNameEdited && entry.fileName.trim() !== "") return entry.fileName;
+  if (entry.fileNameEdited && entry.fileName.trim() !== "") {
+    const name = entry.fileName.trim();
+    const ext = entry.file.name.split(".").pop() ?? "";
+    if (ext && !name.toLowerCase().endsWith(`.${ext.toLowerCase()}`)) {
+      return `${name}.${ext}`;
+    }
+    return name;
+  }
   return buildAutoFileName(entry);
 }
 
