@@ -3,12 +3,14 @@
 import { useUploadForm } from "@/hooks/useUploadForm";
 import EntryCard from "./EntryCard";
 import FileDropZone from "./FileDropZone";
+import UploadStatusView from "./UploadStatusView";
 
 export default function UploadForm() {
   const {
     step,
     files,
     fileStates,
+    uploadStarted,
     isAnyUploading,
     allSucceeded,
     hasErrors,
@@ -39,6 +41,10 @@ export default function UploadForm() {
         </button>
       </div>
     );
+  }
+
+  if (uploadStarted) {
+    return <UploadStatusView fileStates={fileStates} />;
   }
 
   return (

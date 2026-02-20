@@ -61,6 +61,7 @@ export interface FileEntry {
   fileNameEdited: boolean;
   fileNameCheck: FileNameCheckState;
   status: "idle" | "uploading" | "success" | "error" | "duplicate";
+  wikisourceStatus: "idle" | "pending" | "success" | "error";
   errorMessage: string;
   resultUrl: string;
   duplicateUrl: string;
@@ -92,6 +93,7 @@ export function makeEntry(file: File): FileEntry {
     fileNameEdited: false,
     fileNameCheck: { loading: false, exists: null, lastCheckedName: "" },
     status: "idle",
+    wikisourceStatus: "idle",
     errorMessage: "",
     resultUrl: "",
     duplicateUrl: "",

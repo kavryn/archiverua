@@ -25,6 +25,7 @@ export function useUploadForm() {
   const [step, setStep] = useState<1 | 2>(1);
   const [files, setFiles] = useState<File[]>([]);
   const [fileStates, setFileStates] = useState<FileEntry[]>([]);
+  const [uploadStarted, setUploadStarted] = useState(false);
 
   function updateEntry(index: number, patch: Partial<FileEntry>) {
     setFileStates((prev) => prev.map((e, i) => (i === index ? { ...e, ...patch } : e)));
@@ -184,6 +185,8 @@ export function useUploadForm() {
     const allValid = current.every(isEntryValid);
     if (!allValid) return;
 
+    setUploadStarted(true);
+
     for (let i = 0; i < current.length; i++) {
       const entry = current[i];
       if (entry.status === "success") continue;
@@ -193,9 +196,11 @@ export function useUploadForm() {
         if (result.status === "success") {
           updateEntry(i, { status: "success", resultUrl: result.url });
           try {
+            updateEntry(i, { wikisourceStatus: "pending" });
             await callWikisourceAll(entry);
+            updateEntry(i, { wikisourceStatus: "success" });
           } catch {
-            // wikisource-all failure must not affect upload status
+            updateEntry(i, { wikisourceStatus: "error" });
           }
         } else if (result.status === "duplicate") {
           updateEntry(i, { status: "duplicate", duplicateUrl: result.duplicateUrl });
@@ -217,6 +222,7 @@ export function useUploadForm() {
     step,
     files,
     fileStates,
+    uploadStarted,
     isAnyUploading,
     allSucceeded,
     hasErrors,
