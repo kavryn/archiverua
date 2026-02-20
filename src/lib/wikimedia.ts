@@ -83,11 +83,7 @@ export async function uploadFile(params: UploadParams): Promise<string> {
     throw new Error(data.error.info ?? "Upload error");
   }
 
-  const fileUrl: string =
-    data.upload?.imageinfo?.url ??
-    `${WIKI_BASE}/wiki/File:${encodeURIComponent(params.filename)}`;
-
-  return fileUrl;
+  return `${WIKI_BASE}/wiki/File:${encodeURIComponent(params.filename)}`;
 }
 
 export interface ChunkUploadFirstParams {
@@ -215,11 +211,7 @@ export async function commitChunkedUpload(params: CommitUploadParams): Promise<s
     throw new Error(data.error.info ?? "Commit upload error");
   }
 
-  const fileUrl: string =
-    data.upload?.imageinfo?.url ??
-    `${WIKI_BASE}/wiki/File:${encodeURIComponent(params.filename)}`;
-
-  return fileUrl;
+  return `${WIKI_BASE}/wiki/File:${encodeURIComponent(params.filename)}`;
 }
 
 export function buildFilename(

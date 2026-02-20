@@ -69,8 +69,8 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
             <span className="text-gray-500">Завантаження…</span>
           )}
           {entry.status === "success" && (
-            <a href={entry.resultUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline break-all">
-              {entry.resultUrl}
+            <a href={entry.resultUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+              Переглянути файл
             </a>
           )}
           {entry.status === "duplicate" && (
