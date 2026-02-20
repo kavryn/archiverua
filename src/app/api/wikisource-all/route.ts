@@ -3,6 +3,7 @@ import { getWikisourceCsrfToken } from "@/lib/wikimedia";
 import { updateOpysPage } from "@/lib/wikisource-opys";
 import { updateFondPage } from "@/lib/wikisource-fond";
 import { updateArchivePage } from "@/lib/wikisource-archive";
+import { updateSpravaPage } from "@/lib/wikisource-sprava";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -22,11 +23,12 @@ export async function POST(request: Request) {
     dates,
     fondName,
     archiveName,
+    publicFileName,
     updateFond,
     updateArchive,
   } = body;
 
-  if (!archiveAbbr || !fond || !opis || !sprava) {
+  if (!archiveAbbr || !fond || !opis || !sprava || !publicFileName) {
     return NextResponse.json(
       { error: "Відсутні обов'язкові поля" },
       { status: 400 }
@@ -35,6 +37,18 @@ export async function POST(request: Request) {
 
   try {
     const csrfToken = await getWikisourceCsrfToken(session.accessToken);
+
+    const spravaResult = await updateSpravaPage({
+      accessToken: session.accessToken,
+      csrfToken,
+      archiveAbbr,
+      fond,
+      opis,
+      sprava: String(sprava),
+      spravaName: spravaName ?? "",
+      dates: dates ?? "",
+      publicFileName,
+    });
 
     const opysResult = await updateOpysPage({
       accessToken: session.accessToken,
@@ -75,6 +89,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      sprava: spravaResult,
       opys: opysResult,
       ...(fondResult && { fond: fondResult }),
       ...(archiveResult && { archive: archiveResult }),

@@ -147,6 +147,7 @@ export async function callWikisourceAll(entry: FileEntry): Promise<void> {
     fondName: entry.fondName.fetched || entry.fondName.value,
     archiveName: entry.archive.name,
     dates,
+    publicFileName: getEffectiveFileName(entry),
     updateFond: true,
     updateArchive: true,
   };
