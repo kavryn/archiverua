@@ -13,6 +13,7 @@ export interface Option {
   label: string;
   template: string;
   helpText: string;
+  note?: string;
   sort: number;
 }
 
@@ -60,6 +61,7 @@ export const ALL_OPTIONS: Option[] = [
     helpText: `This image (or other media file) is in the public domain because its copyright has expired and its
     author is anonymous. This applies to the European Union and those countries with a copyright term of 70 years
     after the work was made available to the public and the author never disclosed their identity.`,
+    note: "Може використовуватись також для Західної України до 1939 року",
     sort: 4
   }
 ];

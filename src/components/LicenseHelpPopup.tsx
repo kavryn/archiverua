@@ -70,6 +70,10 @@ export default function LicenseHelpPopup() {
                     </a>
                   </p>
                   <p className="mt-1 text-sm text-zinc-600">{opt.helpText}</p>
+                  {opt.note && (
+                    <p className="mt-1 text-sm text-zinc-600 italic"><span className="font-bold
+                    not-italic">Примітка:</span> {opt.note}</p>
+                  )}
                 </div>
               ))}
             </div>
