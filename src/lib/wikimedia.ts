@@ -366,10 +366,13 @@ export async function editWikisourcePage(params: EditWikisourcePageParams): Prom
   return `${WIKISOURCE_BASE}/wiki/${encodeURIComponent(params.title)}`;
 }
 
+function buildDateStr(isArbitraryDate: boolean, dateFrom: string, dateTo: string): string {
+  if (isArbitraryDate || !dateTo || dateFrom === dateTo) return dateFrom;
+  return `${dateFrom}–${dateTo}`;
+}
+
 export function buildDescription(params: DescriptionParams): string {
-  const dateStr = params.isArbitraryDate
-    ? `${params.dateFrom}–${params.dateTo}`
-    : `${params.dateFrom}–${params.dateTo}`;
+  const dateStr = buildDateStr(params.isArbitraryDate, params.dateFrom, params.dateTo);
 
   return `=={{int:filedesc}}==
 {{Information
