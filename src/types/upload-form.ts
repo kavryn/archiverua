@@ -152,15 +152,17 @@ export function hasInvalidFileNameChars(entry: FileEntry): boolean {
   return isFileNameEnabled(entry) && /[:/\\]/.test(getEffectiveFileName(entry));
 }
 
+export function areDatesValid(entry: Pick<FileEntry, "dateMode" | "dateFrom" | "dateTo">): boolean {
+  if (entry.dateMode === "single") return entry.dateFrom.trim() !== "";
+  if (entry.dateMode === "range") return entry.dateFrom.trim() !== "" && entry.dateTo.trim() !== "";
+  return entry.dateFrom.trim() !== "";
+}
+
 export function isEntryValid(entry: FileEntry): boolean {
   const dateEnabled = entry.sprava.trim() !== "";
   const datesValid =
     dateEnabled &&
-    (entry.dateMode === "single"
-      ? entry.dateFrom.trim() !== ""
-      : entry.dateMode === "range"
-      ? entry.dateFrom.trim() !== "" && entry.dateTo.trim() !== ""
-      : entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "") &&
+    areDatesValid(entry) &&
     entry.license.length > 0;
 
   const fondNameShown = entry.fondName.loading || entry.fondName.lastFetchedTitle !== "";

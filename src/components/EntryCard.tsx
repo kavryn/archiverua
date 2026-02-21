@@ -3,7 +3,7 @@ import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
 import LicenseField from "./LicenseField";
 import LicenseHelpPopup from "./LicenseHelpPopup";
-import { type FileEntry, buildAutoFileName, getEffectiveFileName, hasInvalidFileNameChars, isFileNameEnabled } from "@/types/upload-form";
+import { type FileEntry, areDatesValid, buildAutoFileName, getEffectiveFileName, hasInvalidFileNameChars, isFileNameEnabled } from "@/types/upload-form";
 import { useFileNameCheck } from "@/hooks/useFileNameCheck";
 import type { Archive } from "@/lib/archives";
 
@@ -196,21 +196,8 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
           disabled={false}
         />
         <FieldError
-          show={
-            entry.submitted &&
-            entry.dateMode === "range" &&
-            (entry.dateFrom.trim() === "" || entry.dateTo.trim() === "")
-          }
-          message="Поля обов'язкові"
-        />
-        <FieldError
-          show={
-            entry.submitted &&
-            entry.dateMode !== "range" &&
-            entry.dateFrom.trim() === "" &&
-            entry.dateTo.trim() === ""
-          }
-          message="Поле обов'язкове"
+          show={entry.submitted && !areDatesValid(entry)}
+          message={entry.dateMode === "range" ? "Поля обов'язкові" : "Поле обов'язкове"}
         />
       </div>
 
