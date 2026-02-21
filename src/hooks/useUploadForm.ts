@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { makeEntry, isEntryValid, fetchWikisourceName, emptyNameState, emptySpravaWikisource, type FileEntry } from "@/types/upload-form";
 import { uploadFile, callWikisourceAll } from "@/lib/upload";
 import type { Archive } from "@/lib/archives";
@@ -217,6 +217,19 @@ export function useUploadForm() {
   const allSucceeded = fileStates.length > 0 && fileStates.every((e) => e.status === "success");
   const hasErrors = fileStates.some((e) => e.submitted && !isEntryValid(e));
   const hasFileNameConflict = fileStates.some((e) => e.fileNameCheck.exists === true);
+
+  useEffect(() => {
+    const shouldGuard = step === 2 || (uploadStarted && !allSucceeded);
+    if (!shouldGuard) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [step, uploadStarted, allSucceeded]);
 
   return {
     step,
