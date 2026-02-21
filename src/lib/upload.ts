@@ -1,4 +1,5 @@
 import { CHUNK_SIZE, LARGE_FILE_THRESHOLD, MAX_CHUNK_RETRIES, type FileEntry, getEffectiveFileName } from "@/types/upload-form";
+import { apiFetch } from "@/lib/apiFetch";
 
 function buildWikisourceDateStr(dateFrom: string, dateTo: string, isArbitraryDate: boolean): string {
   if (isArbitraryDate || !dateTo || dateFrom === dateTo) {
@@ -13,7 +14,7 @@ async function uploadChunkWithRetry(
 ): Promise<{ filekey: string; offset: number }> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await fetch("/api/upload/chunk", { method: "POST", body: chunkFd });
+      const res = await apiFetch("/api/upload/chunk", { method: "POST", body: chunkFd });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       return { filekey: data.filekey, offset: data.offset };
@@ -40,14 +41,14 @@ async function commitUpload(filekey: string, entry: FileEntry): Promise<string> 
   fd.append("spravaName", entry.spravaName);
   fd.append("author", entry.author);
   fd.append("fileName", getEffectiveFileName(entry));
-  const res = await fetch("/api/upload", { method: "POST", body: fd });
+  const res = await apiFetch("/api/upload", { method: "POST", body: fd });
   const data = await res.json();
   if (data.duplicateUrl) return `__duplicate__${data.duplicateUrl}`;
   if (data.error) throw new Error(data.error);
   return data.url as string;
 }
 
-function uploadSmallFile(entry: FileEntry): Promise<{ url?: string; duplicateUrl?: string; error?: string }> {
+async function uploadSmallFile(entry: FileEntry): Promise<{ url?: string; duplicateUrl?: string; error?: string }> {
   const fd = new FormData();
   fd.append("file", entry.file);
   fd.append("archiveAbbr", entry.archive!.abbr);
@@ -61,7 +62,9 @@ function uploadSmallFile(entry: FileEntry): Promise<{ url?: string; duplicateUrl
   fd.append("spravaName", entry.spravaName);
   fd.append("author", entry.author);
   fd.append("fileName", getEffectiveFileName(entry));
-  return fetch("/api/upload", { method: "POST", body: fd }).then((res) => res.json());
+  const res = await apiFetch("/api/upload", { method: "POST", body: fd });
+  const data = await res.json();
+  return data;
 }
 
 export type UploadResult =
@@ -161,7 +164,7 @@ export async function callWikisourceAll(entry: FileEntry): Promise<WikisourceAll
     updateArchive: !entry.fondName.exists,
   };
 
-  const res = await fetch("/api/wikisource-all", {
+  const res = await apiFetch("/api/wikisource-all", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
