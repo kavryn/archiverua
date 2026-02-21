@@ -153,9 +153,48 @@ export function hasInvalidFileNameChars(entry: FileEntry): boolean {
   return isFileNameEnabled(entry) && /[:/\\]/.test(getEffectiveFileName(entry));
 }
 
-export function areDatesValid(entry: Pick<FileEntry, "dateMode" | "dateFrom" | "dateTo">): boolean {
-  if (entry.dateMode === "range") return entry.dateFrom.trim() !== "" && entry.dateTo.trim() !== "";
-  return entry.dateFrom.trim() !== ""; // "single" and other modes
+const INTEGER_RE = /^\d+$/;
+
+export function getDateError(
+  entry: Pick<FileEntry, "dateMode" | "dateFrom" | "dateTo">
+): string | null {
+  const currentYear = new Date().getFullYear();
+  const from = entry.dateFrom.trim();
+  const to = entry.dateTo.trim();
+
+  if (entry.dateMode === "other") {
+    return from !== "" ? null : "Поле обов'язкове";
+  }
+
+  if (entry.dateMode === "single") {
+    if (from === "") return "Поле обов'язкове";
+    if (!INTEGER_RE.test(from)) return "Дата має бути числом";
+    if (parseInt(from, 10) > currentYear)
+      return `Дата не може перевищувати ${currentYear}`;
+    return null;
+  }
+
+  // range
+  const fromEmpty = from === "";
+  const toEmpty = to === "";
+  if (fromEmpty && toEmpty) return "Поля обов'язкові";
+  if (fromEmpty) return "Поле 'Початкова' обов'язкове";
+  if (toEmpty) return "Поле 'Кінцева' обов'язкове";
+  if (!INTEGER_RE.test(from) || !INTEGER_RE.test(to))
+    return "Дати мають бути числами";
+  const fromYear = parseInt(from, 10);
+  const toYear = parseInt(to, 10);
+  if (toYear > currentYear)
+    return `Кінцева дата не може перевищувати ${currentYear}`;
+  if (toYear < fromYear)
+    return "Кінцева дата має бути не меншою за початкову";
+  return null;
+}
+
+export function areDatesValid(
+  entry: Pick<FileEntry, "dateMode" | "dateFrom" | "dateTo">
+): boolean {
+  return getDateError(entry) === null;
 }
 
 export function isEntryValid(entry: FileEntry): boolean {
