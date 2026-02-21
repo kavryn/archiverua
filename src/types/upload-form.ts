@@ -153,9 +153,8 @@ export function hasInvalidFileNameChars(entry: FileEntry): boolean {
 }
 
 export function areDatesValid(entry: Pick<FileEntry, "dateMode" | "dateFrom" | "dateTo">): boolean {
-  if (entry.dateMode === "single") return entry.dateFrom.trim() !== "";
   if (entry.dateMode === "range") return entry.dateFrom.trim() !== "" && entry.dateTo.trim() !== "";
-  return entry.dateFrom.trim() !== "";
+  return entry.dateFrom.trim() !== ""; // "single" and other modes
 }
 
 export function isEntryValid(entry: FileEntry): boolean {
