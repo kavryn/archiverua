@@ -30,15 +30,16 @@ describe("buildNewOpysPage", () => {
     expect(result).toContain("| назва = Назва опису");
     expect(result).toContain("== Справи ==");
     expect(result).toContain('{| class="wikitable sortable"');
-    expect(result).toContain("[[/1/]]||Назва справи||1920-1930");
+    expect(result).toContain('!№!!Назва!!Роки!!Сторінки!!Примітки');
+    expect(result).toContain("[[/1/]]||Назва справи||1920-1930||||");
     const matches = result.match(/\[\[\/1\/\]\]/g);
     expect(matches).toHaveLength(1);
   });
 
   it("creates page with placeholder row + actual row when sprava!=1", () => {
     const result = buildNewOpysPage({ ...baseParams, sprava: "5" });
-    expect(result).toContain("[[/1/]]||||||");
-    expect(result).toContain("[[/5/]]||Назва справи||1920-1930");
+    expect(result).toContain("[[/1/]]||||||||");
+    expect(result).toContain("[[/5/]]||Назва справи||1920-1930||||");
     const idx1 = result.indexOf("[[/1/]]");
     const idx5 = result.indexOf("[[/5/]]");
     expect(idx1).toBeLessThan(idx5);

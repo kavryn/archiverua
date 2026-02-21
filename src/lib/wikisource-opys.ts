@@ -36,7 +36,7 @@ export function buildNewOpysPage(params: OpysPageParams): string {
 }}`;
 
   const tableHeader = `{| class="wikitable sortable"
-!№!!Назва!!Дати!!Примітки!!`;
+!№!!Назва!!Роки!!Сторінки!!Примітки`;
 
   const columnCount = 5;
 
