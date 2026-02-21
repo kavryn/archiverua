@@ -130,7 +130,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
             }
             placeholder={entry.fondName.loading ? "Завантаження…" :
                 entry.fondName.lastFetchedTitle === "" ? "Автоматично. Спершу введіть архів та фонд." :
-                "Введіть назву фонду"}
+                "Офіційна назва фонду"}
             className="input"
           />
           <FieldError
@@ -164,7 +164,7 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
             }
             placeholder={entry.opisName.loading ? "Завантаження…" :
                  entry.opisName.lastFetchedTitle === "" ? "Автоматично. Спершу введіть архів, фонд та опис." :
-                 "Введіть назву опису"}
+                 "Офіційна назва опису"}
             className="input"
           />
         </div>
