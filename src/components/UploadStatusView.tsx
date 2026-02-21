@@ -70,7 +70,7 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
           )}
           {entry.status === "success" && (
             <a href={entry.resultUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-              Переглянути файл
+              Файл
             </a>
           )}
           {entry.status === "duplicate" && (
@@ -99,22 +99,22 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
             <div className="ml-7 flex flex-wrap gap-x-3 gap-y-1 text-sm">
               {entry.wikisourceResult.sprava && (
                 <a href={entry.wikisourceResult.sprava.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                  Переглянути справу
+                  Справа
                 </a>
               )}
               {entry.wikisourceResult.opys && (
                 <a href={entry.wikisourceResult.opys.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                  Переглянути опис
+                  Опис
                 </a>
               )}
               {entry.wikisourceResult.fond && (
                 <a href={entry.wikisourceResult.fond.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                  Переглянути фонд
+                  Фонд
                 </a>
               )}
               {entry.wikisourceResult.archive && (
                 <a href={entry.wikisourceResult.archive.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
-                  Переглянути архів
+                  Архів
                 </a>
               )}
             </div>
