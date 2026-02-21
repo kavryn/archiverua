@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { makeEntry, isEntryValid, fetchWikisourceName, emptyNameState, emptySpravaWikisource, type FileEntry } from "@/types/upload-form";
 import { uploadFile, callWikisourceAll } from "@/lib/upload";
 import type { Archive } from "@/lib/archives";
+import { useNavigationGuard } from "@/context/NavigationGuardContext";
 
 /**
  * Changes from "р203" to "Р-203"
@@ -217,6 +218,14 @@ export function useUploadForm() {
   const allSucceeded = fileStates.length > 0 && fileStates.every((e) => e.status === "success");
   const hasErrors = fileStates.some((e) => e.submitted && !isEntryValid(e));
   const hasFileNameConflict = fileStates.some((e) => e.fileNameCheck.exists === true);
+
+  const { setShouldGuard } = useNavigationGuard();
+
+  useEffect(() => {
+    const guard = step === 2 || (uploadStarted && !allSucceeded);
+    setShouldGuard(guard);
+    return () => setShouldGuard(false);
+  }, [step, uploadStarted, allSucceeded, setShouldGuard]);
 
   useEffect(() => {
     const shouldGuard = step === 2 || (uploadStarted && !allSucceeded);

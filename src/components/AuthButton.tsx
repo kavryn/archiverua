@@ -1,4 +1,5 @@
-import { auth, signIn, signOut } from "@/auth";
+import { auth, signIn } from "@/auth";
+import SignOutButton from "@/components/SignOutButton";
 
 export default async function AuthButton() {
   const session = await auth();
@@ -9,19 +10,7 @@ export default async function AuthButton() {
         <span className="text-base text-zinc-700">
           Вітаємо, {session.user.name}
         </span>
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/" });
-          }}
-        >
-          <button
-            type="submit"
-            className="rounded-full border border-solid border-black/[.08] px-4 py-2 text-base transition-colors hover:border-transparent hover:bg-black/[.04]"
-          >
-            Вийти
-          </button>
-        </form>
+        <SignOutButton className="rounded-full border border-solid border-black/[.08] px-4 py-2 text-base transition-colors hover:border-transparent hover:bg-black/[.04]" />
       </div>
     );
   }
