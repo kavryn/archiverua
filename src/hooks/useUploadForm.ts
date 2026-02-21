@@ -214,7 +214,7 @@ export function useUploadForm() {
     }
   }
 
-  const isAnyUploading = fileStates.some((e) => e.status === "uploading");
+  const isAnyUploading = fileStates.some((e) => e.status === "uploading" || e.wikisourceStatus === "pending");
   const allSucceeded = fileStates.length > 0 && fileStates.every((e) => e.status === "success");
   const hasErrors = fileStates.some((e) => e.submitted && !isEntryValid(e));
   const hasFileNameConflict = fileStates.some((e) => e.fileNameCheck.exists === true);
@@ -222,13 +222,13 @@ export function useUploadForm() {
   const { setShouldGuard } = useNavigationGuard();
 
   useEffect(() => {
-    const guard = step === 2 || (uploadStarted && !allSucceeded);
+    const guard = (step === 2 && !uploadStarted) || isAnyUploading;
     setShouldGuard(guard);
     return () => setShouldGuard(false);
-  }, [step, uploadStarted, allSucceeded, setShouldGuard]);
+  }, [step, uploadStarted, isAnyUploading, setShouldGuard]);
 
   useEffect(() => {
-    const shouldGuard = step === 2 || (uploadStarted && !allSucceeded);
+    const shouldGuard = (step === 2 && !uploadStarted) || isAnyUploading;
     if (!shouldGuard) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -238,7 +238,7 @@ export function useUploadForm() {
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [step, uploadStarted, allSucceeded]);
+  }, [step, uploadStarted, isAnyUploading]);
 
   return {
     step,
