@@ -1,5 +1,6 @@
 import type { Archive } from "@/lib/archives";
 import { type DateMode } from "@/components/DateFields";
+import { apiFetch } from "@/lib/apiFetch";
 
 
 export const CHUNK_SIZE = 20 * 1024 * 1024;
