@@ -86,7 +86,18 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
 
         {/* Controls row */}
         <Switcher current={state.dateMode} onSelect={handleModeChange} disabled={disabled} />
-        {state.dateMode === "range" ? (
+        {state.dateMode === "single" && (
+          <input
+            type="number"
+            inputMode="numeric"
+            value={state.dateFrom}
+            onChange={(e) => onChange({ dateFrom: e.target.value })}
+            disabled={disabled}
+            placeholder="напр. 1890"
+            className="col-span-2 input"
+          />
+        )}
+        {state.dateMode === "range" && (
           <>
             <input
               type="number"
@@ -107,14 +118,14 @@ export default function DateFields({ state, onChange, disabled, label }: Props) 
               className="input"
             />
           </>
-        ) : (
+        )}
+        {state.dateMode === "other" && (
           <input
-            type={state.dateMode === "single" ? "number" : "text"}
-            inputMode={state.dateMode === "single" ? "numeric" : undefined}
+            type="text"
             value={state.dateFrom}
             onChange={(e) => onChange({ dateFrom: e.target.value })}
             disabled={disabled}
-            placeholder={state.dateMode === "other" ? "кінець XVII ст., 1870-ті тощо" : "напр. 1890"}
+            placeholder="кінець XVII ст., 1870-ті тощо"
             className="col-span-2 input"
           />
         )}
