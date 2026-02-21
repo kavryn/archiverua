@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { type FileEntry, isFileNameEnabled, getEffectiveFileName } from "@/types/upload-form";
+import { type FileEntry, isFileNameEnabled, getEffectiveFileName, hasInvalidFileNameChars } from "@/types/upload-form";
 
 export function useFileNameCheck(
   entry: FileEntry,
@@ -20,7 +20,7 @@ export function useFileNameCheck(
       debounceRef.current = null;
     }
 
-    if (!fileNameEnabled || !effectiveFileName.trim()) {
+    if (!fileNameEnabled || !effectiveFileName.trim() || hasInvalidFileNameChars(entry)) {
       onUpdateRef.current({ fileNameCheck: { loading: false, exists: null, lastCheckedName: "" } });
       return;
     }
