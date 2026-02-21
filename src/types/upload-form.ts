@@ -196,7 +196,7 @@ export async function fetchWikisourceName(
 ): Promise<{ name: string | null; exists: boolean }> {
   const cached = wikisourceNameCache.get(pageTitle);
   if (cached) return cached;
-  const res = await fetch(`/api/wikisource-name?title=${encodeURIComponent(pageTitle)}`);
+  const res = await apiFetch(`/api/wikisource-name?title=${encodeURIComponent(pageTitle)}`);
   const result = await res.json();
   wikisourceNameCache.set(pageTitle, result);
   return result;

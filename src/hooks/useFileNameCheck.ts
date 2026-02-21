@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { type FileEntry, isFileNameEnabled, getEffectiveFileName, hasInvalidFileNameChars } from "@/types/upload-form";
+import { apiFetch } from "@/lib/apiFetch";
 
 export function useFileNameCheck(
   entry: FileEntry,
@@ -30,7 +31,7 @@ export function useFileNameCheck(
       const reqId = ++requestIdRef.current;
       onUpdateRef.current({ fileNameCheck: { loading: true, exists: null, lastCheckedName: name } });
       try {
-        const res = await fetch(`/api/commons-file-exists?filename=${encodeURIComponent(name)}`);
+        const res = await apiFetch(`/api/commons-file-exists?filename=${encodeURIComponent(name)}`);
         const data = await res.json();
         if (requestIdRef.current !== reqId) return;
         onUpdateRef.current({ fileNameCheck: { loading: false, exists: data.exists, lastCheckedName: name } });
