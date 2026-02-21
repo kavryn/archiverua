@@ -224,21 +224,21 @@ export function useUploadForm() {
   useEffect(() => {
     const guard = (step === 2 && !uploadStarted) || isAnyUploading;
     setShouldGuard(guard);
+
+    if (guard) {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = "";
+      };
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      return () => {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        setShouldGuard(false);
+      };
+    }
+
     return () => setShouldGuard(false);
   }, [step, uploadStarted, isAnyUploading, setShouldGuard]);
-
-  useEffect(() => {
-    const shouldGuard = (step === 2 && !uploadStarted) || isAnyUploading;
-    if (!shouldGuard) return;
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [step, uploadStarted, isAnyUploading]);
 
   return {
     step,
