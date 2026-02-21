@@ -38,6 +38,19 @@ export async function getCsrfToken(accessToken: string): Promise<string> {
     },
   });
   if (!res.ok) {
+    let body: string | undefined;
+    try {
+      body = await res.text();
+    } catch {
+      // ignore
+    }
+    console.error("[getCsrfToken] Request failed", {
+      status: res.status,
+      statusText: res.statusText,
+      url,
+      tokenPreview: accessToken ? `${accessToken.slice(0, 8)}...` : "missing",
+      body,
+    });
     throw new Error(`Failed to get CSRF token: ${res.status}`);
   }
   const data = await res.json();
@@ -247,6 +260,19 @@ export async function getWikisourceCsrfToken(accessToken: string): Promise<strin
     },
   });
   if (!res.ok) {
+    let body: string | undefined;
+    try {
+      body = await res.text();
+    } catch {
+      // ignore
+    }
+    console.error("[getWikisourceCsrfToken] Request failed", {
+      status: res.status,
+      statusText: res.statusText,
+      url,
+      tokenPreview: accessToken ? `${accessToken.slice(0, 8)}...` : "missing",
+      body,
+    });
     throw new Error(`Failed to get Wikisource CSRF token: ${res.status}`);
   }
   const data = await res.json();
