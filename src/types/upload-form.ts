@@ -158,6 +158,8 @@ export function isEntryValid(entry: FileEntry): boolean {
     dateEnabled &&
     (entry.dateMode === "single"
       ? entry.dateFrom.trim() !== ""
+      : entry.dateMode === "range"
+      ? entry.dateFrom.trim() !== "" && entry.dateTo.trim() !== ""
       : entry.dateFrom.trim() !== "" || entry.dateTo.trim() !== "") &&
     entry.license.length > 0;
 

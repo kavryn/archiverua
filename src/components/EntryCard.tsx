@@ -198,10 +198,19 @@ export default function EntryCard({ entry, onUpdate, onArchiveChange, onFondBlur
         <FieldError
           show={
             entry.submitted &&
+            entry.dateMode === "range" &&
+            (entry.dateFrom.trim() === "" || entry.dateTo.trim() === "")
+          }
+          message="Поля обов'язкові"
+        />
+        <FieldError
+          show={
+            entry.submitted &&
+            entry.dateMode !== "range" &&
             entry.dateFrom.trim() === "" &&
             entry.dateTo.trim() === ""
           }
-          message="Вкажіть хоча б одну дату"
+          message="Поле обов'язкове"
         />
       </div>
 
