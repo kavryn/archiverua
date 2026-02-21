@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         accessToken: session.accessToken,
         csrfToken,
         filekey,
+        filename,
         chunk,
         offset,
         fileSize,

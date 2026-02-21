@@ -111,6 +111,7 @@ export interface ChunkUploadNextParams {
   accessToken: string;
   csrfToken: string;
   filekey: string;
+  filename: string;
   chunk: Blob;
   offset: number;
   fileSize: number;
@@ -140,7 +141,7 @@ export async function uploadFirstChunk(params: ChunkUploadFirstParams): Promise<
   fd.append("filesize", String(params.fileSize));
   fd.append("token", params.csrfToken);
   fd.append("ignorewarnings", "1");
-  fd.append("file", params.chunk, params.filename);
+  fd.append("chunk", params.chunk, params.filename);
 
   const res = await fetch(API_URL, {
     method: "POST",
@@ -169,6 +170,7 @@ export async function uploadNextChunk(params: ChunkUploadNextParams): Promise<Ch
   fd.append("format", "json");
   fd.append("stash", "1");
   fd.append("filekey", params.filekey);
+  fd.append("filename", params.filename);
   fd.append("offset", String(params.offset));
   fd.append("filesize", String(params.fileSize));
   fd.append("token", params.csrfToken);
