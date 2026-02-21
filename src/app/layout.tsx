@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Вікіархіватор",
-  description: "Найшвидший спосіб опублікувати справи з українських архівів на Вікісховищі та Вікіджерелах",
+  description: "Допоможе опублікувати справи з українських архівів на Вікісховищі та Вікіджерелах",
 };
 
 export default function RootLayout({
