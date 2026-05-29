@@ -2,11 +2,20 @@ import { type FileEntry } from "./types";
 import { getEffectiveFileName } from "./hooks/usePublicFileName";
 import { apiFetch } from "@/lib/api-fetch";
 import { buildCommonsDescription, COMMONS_UPLOAD_COMMENT } from "@/lib/wikicommons-upload";
-import { DuplicateFileError, wikicommons } from "@/lib/wikimedia";
+import {
+  DuplicateFileError,
+  wikicommons,
+  UPLOAD_POLL_INTERVAL_MS,
+  UPLOAD_POLL_TIMEOUT_MS,
+} from "@/lib/wikimedia";
 
-export const CHUNK_SIZE = 8 * 1024 * 1024;
-export const LARGE_FILE_THRESHOLD = 8 * 1024 * 1024;
+export const CHUNK_SIZE = 5 * 1024 * 1024;
+export const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024;
 export const MAX_CHUNK_RETRIES = 3;
+// Match UploadWizard: only request async server-side processing above 10 MiB,
+// so the assembly job runs off the request thread and we poll for it instead of
+// holding open a synchronous request that times out (504 / DB lock contention).
+const ASYNC_UPLOAD_THRESHOLD = 10 * 1024 * 1024;
 
 export type UploadResult =
   | { status: "success"; url: string }
@@ -113,7 +122,8 @@ async function commitDirectUpload(
   filekey: string,
   metadata: UploadMetadata,
   accessToken: string,
-  csrfToken: string
+  csrfToken: string,
+  useAsync: boolean
 ): Promise<UploadResult> {
   const { filename, description, comment } = metadata;
   let currentCsrfToken = csrfToken;
@@ -127,6 +137,7 @@ async function commitDirectUpload(
       description,
       comment,
       useCrossOrigin: true,
+      useAsync,
     });
 
   try {
@@ -176,6 +187,35 @@ function reportUploadProgress(
   onProgress?.({ ...progress, uploadProgress });
 }
 
+// Wait out a server-side async chunk/assembly job (result === "Poll"), matching
+// UploadWizard's checkStatus loop. Returns once the server reports completion.
+async function pollDirectUploadStatus(params: {
+  accessToken: string;
+  csrfToken: string;
+  filekey: string;
+}): Promise<{ filekey: string; offset: number }> {
+  const startedAt = Date.now();
+
+  for (;;) {
+    const status = await wikicommons.checkUploadStatus({
+      accessToken: params.accessToken,
+      csrfToken: params.csrfToken,
+      filekey: params.filekey,
+      useCrossOrigin: true,
+    });
+
+    if (status.result !== "Poll") {
+      return { filekey: status.filekey, offset: status.offset };
+    }
+
+    if (Date.now() - startedAt > UPLOAD_POLL_TIMEOUT_MS) {
+      throw new Error("Перевищено час очікування обробки файлу на сервері Вікісховища");
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, UPLOAD_POLL_INTERVAL_MS));
+  }
+}
+
 async function uploadDirectChunk(params: {
   accessToken: string;
   csrfToken: string;
@@ -184,6 +224,7 @@ async function uploadDirectChunk(params: {
   chunkBlob: Blob;
   fileSize: number;
   filename: string;
+  useAsync: boolean;
 }): Promise<{ filekey: string; offset: number; csrfToken: string }> {
   let currentCsrfToken = params.csrfToken;
 
@@ -195,6 +236,7 @@ async function uploadDirectChunk(params: {
       chunk: params.chunkBlob,
       fileSize: params.fileSize,
       useCrossOrigin: true,
+      useAsync: params.useAsync,
     };
     return params.filekey
       ? wikicommons.uploadNextChunk({ ...base, filekey: params.filekey, offset: params.chunkStart })
@@ -212,6 +254,21 @@ async function uploadDirectChunk(params: {
       throw err;
     }
   }, MAX_CHUNK_RETRIES);
+
+  const chunkEnd = params.chunkStart + params.chunkBlob.size;
+
+  if (result.result === "Poll") {
+    const polled = await pollDirectUploadStatus({
+      accessToken: params.accessToken,
+      csrfToken: currentCsrfToken,
+      filekey: result.filekey,
+    });
+    return {
+      filekey: polled.filekey,
+      offset: polled.offset || chunkEnd,
+      csrfToken: currentCsrfToken,
+    };
+  }
 
   return { filekey: result.filekey, offset: result.offset, csrfToken: currentCsrfToken };
 }
@@ -254,6 +311,7 @@ async function uploadChunkedFile(
   let filekey = "";
   let confirmedOffset = 0;
   let csrfToken = useDirectUpload ? await wikicommons.getCsrfToken(accessToken!, true) : undefined;
+  const useAsync = fileSize > ASYNC_UPLOAD_THRESHOLD;
 
   for (let i = 0; i < totalChunks; i++) {
     const chunkStart = i * CHUNK_SIZE;
@@ -269,6 +327,7 @@ async function uploadChunkedFile(
         chunkBlob,
         fileSize,
         filename: file.name,
+        useAsync,
       });
       filekey = result.filekey;
       confirmedOffset = result.offset ?? chunkEnd;
@@ -294,7 +353,7 @@ async function uploadChunkedFile(
   }
 
   if (useDirectUpload) {
-    return await commitDirectUpload(filekey, metadata, accessToken!, csrfToken!);
+    return await commitDirectUpload(filekey, metadata, accessToken!, csrfToken!, useAsync);
   }
 
   return await commitProxyUpload(filekey, metadata);

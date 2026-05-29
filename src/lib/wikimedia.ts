@@ -8,6 +8,10 @@ const WIKISOURCE_API_URL =
   process.env.NEXT_PUBLIC_WIKISOURCE_API_URL ?? "https://uk.wikisource.org/w/api.php";
 const WIKISOURCE_BASE = WIKISOURCE_API_URL.replace(/\/w\/api\.php$/, "");
 
+// Async chunk assembly / publish polling, matching UploadWizard's checkStatus loop.
+export const UPLOAD_POLL_INTERVAL_MS = 3000;
+export const UPLOAD_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
 export interface UploadParams {
   accessToken: string;
   csrfToken: string;
@@ -24,6 +28,7 @@ export interface ChunkUploadFirstParams {
   chunk: Blob;
   fileSize: number;
   useCrossOrigin?: boolean;
+  useAsync?: boolean;
 }
 
 export interface ChunkUploadNextParams {
@@ -35,11 +40,24 @@ export interface ChunkUploadNextParams {
   offset: number;
   fileSize: number;
   useCrossOrigin?: boolean;
+  useAsync?: boolean;
 }
 
 export interface ChunkUploadResult {
   filekey: string;
   offset: number;
+  // "Continue" | "Success" — chunk stashed; "Poll" — server is processing
+  // the chunk/assembly asynchronously and the client must call checkUploadStatus.
+  result?: string;
+  stage?: string;
+  warnings?: Record<string, unknown>;
+}
+
+export interface CheckUploadStatusParams {
+  accessToken: string;
+  csrfToken: string;
+  filekey: string;
+  useCrossOrigin?: boolean;
 }
 
 export interface CommitUploadParams {
@@ -50,6 +68,7 @@ export interface CommitUploadParams {
   description: string;
   comment: string;
   useCrossOrigin?: boolean;
+  useAsync?: boolean;
 }
 
 export interface UserContrib {
@@ -224,6 +243,9 @@ class WikicommonsClient extends WikiClient {
     fd.append("token", params.csrfToken);
     // Ignore warnings until the final commit, when Commons validates the complete file.
     fd.append("ignorewarnings", "1");
+    if (params.useAsync) {
+      fd.append("async", "1");
+    }
     fd.append("chunk", params.chunk, params.filename);
 
     const res = await wikiFetch(this.apiUrlWithCrossOrigin(params.useCrossOrigin), {
@@ -259,6 +281,8 @@ class WikicommonsClient extends WikiClient {
     return {
       filekey: data.upload.filekey as string,
       offset: data.upload.offset as number,
+      result: data.upload.result as string | undefined,
+      stage: data.upload.stage as string | undefined,
     };
   }
 
@@ -274,6 +298,9 @@ class WikicommonsClient extends WikiClient {
     fd.append("token", params.csrfToken);
     // Ignore warnings until the final commit, when Commons validates the complete file.
     fd.append("ignorewarnings", "1");
+    if (params.useAsync) {
+      fd.append("async", "1");
+    }
     fd.append("chunk", params.chunk, "chunk");
 
     const res = await wikiFetch(this.apiUrlWithCrossOrigin(params.useCrossOrigin), {
@@ -309,7 +336,61 @@ class WikicommonsClient extends WikiClient {
     return {
       filekey: data.upload.filekey as string,
       offset: data.upload.offset as number,
+      result: data.upload.result as string | undefined,
+      stage: data.upload.stage as string | undefined,
     };
+  }
+
+  // Poll an async chunked upload. While the server reports result "Poll" the
+  // chunk/assembly job is still running; this returns the latest status so the
+  // caller can wait until result becomes "Continue"/"Success".
+  async checkUploadStatus(params: CheckUploadStatusParams): Promise<ChunkUploadResult> {
+    const fd = new FormData();
+    fd.append("action", "upload");
+    fd.append("format", "json");
+    fd.append("checkstatus", "1");
+    fd.append("filekey", params.filekey);
+    fd.append("token", params.csrfToken);
+
+    const res = await wikiFetch(this.apiUrlWithCrossOrigin(params.useCrossOrigin), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${params.accessToken}` },
+      body: fd,
+    });
+
+    if (!res.ok) {
+      throw new Error(`Check upload status failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (data.error) {
+      console.error("[checkUploadStatus] API error", data.error);
+      throw new Error(data.error.info ?? "Check upload status error");
+    }
+
+    return {
+      filekey: (data.upload?.filekey as string) ?? params.filekey,
+      offset: (data.upload?.offset as number) ?? 0,
+      result: data.upload?.result as string | undefined,
+      stage: data.upload?.stage as string | undefined,
+      warnings: data.upload?.warnings as Record<string, unknown> | undefined,
+    };
+  }
+
+  // Poll an async upload (chunk assembly or publish) until the server stops
+  // returning result "Poll". Returns the final status.
+  private async waitForUploadCompletion(params: CheckUploadStatusParams): Promise<ChunkUploadResult> {
+    const startedAt = Date.now();
+    for (;;) {
+      const status = await this.checkUploadStatus(params);
+      if (status.result !== "Poll") {
+        return status;
+      }
+      if (Date.now() - startedAt > UPLOAD_POLL_TIMEOUT_MS) {
+        throw new Error("Перевищено час очікування обробки файлу на сервері Вікісховища");
+      }
+      await new Promise((resolve) => setTimeout(resolve, UPLOAD_POLL_INTERVAL_MS));
+    }
   }
 
   async commitChunkedUpload(params: CommitUploadParams): Promise<string> {
@@ -321,6 +402,9 @@ class WikicommonsClient extends WikiClient {
     fd.append("text", params.description);
     fd.append("comment", params.comment);
     fd.append("token", params.csrfToken);
+    if (params.useAsync) {
+      fd.append("async", "1");
+    }
 
     const res = await wikiFetch(this.apiUrlWithCrossOrigin(params.useCrossOrigin), {
       method: "POST",
@@ -339,6 +423,18 @@ class WikicommonsClient extends WikiClient {
     if (data.error) {
       console.error("[commitChunkedUpload] API error", data.error);
       throw new Error(data.error.info ?? "Commit upload error");
+    }
+
+    // Async publish: the file is being published by a job. Poll until it lands,
+    // then re-check warnings on the final response (e.g. duplicate).
+    if (data.upload?.result === "Poll") {
+      const status = await this.waitForUploadCompletion({
+        accessToken: params.accessToken,
+        csrfToken: params.csrfToken,
+        filekey: params.filekey,
+        useCrossOrigin: params.useCrossOrigin,
+      });
+      throwOnUploadWarnings(status.warnings);
     }
 
     return `${this.baseUrl}/wiki/File:${encodeURIComponent(params.filename)}`;
