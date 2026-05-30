@@ -2,12 +2,7 @@ import { type FileEntry } from "./types";
 import { getEffectiveFileName } from "./hooks/usePublicFileName";
 import { apiFetch } from "@/lib/api-fetch";
 import { buildCommonsDescription, COMMONS_UPLOAD_COMMENT } from "@/lib/wikicommons-upload";
-import {
-  DuplicateFileError,
-  wikicommons,
-  UPLOAD_POLL_INTERVAL_MS,
-  UPLOAD_POLL_TIMEOUT_MS,
-} from "@/lib/wikimedia";
+import { DuplicateFileError, wikicommons } from "@/lib/wikimedia";
 
 export const CHUNK_SIZE = 5 * 1024 * 1024;
 export const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024;
@@ -187,33 +182,22 @@ function reportUploadProgress(
   onProgress?.({ ...progress, uploadProgress });
 }
 
-// Wait out a server-side async chunk/assembly job (result === "Poll"), matching
-// UploadWizard's checkStatus loop. Returns once the server reports completion.
+// Wait out a server-side async chunk-assembly job (result === "Poll"), matching
+// UploadWizard's checkStatus loop. Delegates to the shared poll method on
+// WikiClient so both the chunk-assembly and the publish step use the same
+// transient-error handling.
 async function pollDirectUploadStatus(params: {
   accessToken: string;
   csrfToken: string;
   filekey: string;
 }): Promise<{ filekey: string; offset: number }> {
-  const startedAt = Date.now();
-
-  for (;;) {
-    const status = await wikicommons.checkUploadStatus({
-      accessToken: params.accessToken,
-      csrfToken: params.csrfToken,
-      filekey: params.filekey,
-      useCrossOrigin: true,
-    });
-
-    if (status.result !== "Poll") {
-      return { filekey: status.filekey, offset: status.offset };
-    }
-
-    if (Date.now() - startedAt > UPLOAD_POLL_TIMEOUT_MS) {
-      throw new Error("Перевищено час очікування обробки файлу на сервері Вікісховища");
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, UPLOAD_POLL_INTERVAL_MS));
-  }
+  const status = await wikicommons.waitForUploadCompletion({
+    accessToken: params.accessToken,
+    csrfToken: params.csrfToken,
+    filekey: params.filekey,
+    useCrossOrigin: true,
+  });
+  return { filekey: status.filekey, offset: status.offset };
 }
 
 async function uploadDirectChunk(params: {

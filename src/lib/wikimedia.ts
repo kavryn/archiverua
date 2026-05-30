@@ -11,6 +11,12 @@ const WIKISOURCE_BASE = WIKISOURCE_API_URL.replace(/\/w\/api\.php$/, "");
 // Async chunk assembly / publish polling, matching UploadWizard's checkStatus loop.
 export const UPLOAD_POLL_INTERVAL_MS = 3000;
 export const UPLOAD_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+// UploadWizard fails immediately on any checkstatus 5xx. We're more lenient
+// (a single transient 504 from the edge shouldn't kill the upload), but we
+// won't let a real outage quietly burn the entire 10-min budget either —
+// after this many ms of *consecutive* 5xx with no successful response in
+// between, the latest error is rethrown.
+const UPLOAD_TRANSIENT_5XX_BUDGET_MS = 60 * 1000;
 
 export interface UploadParams {
   accessToken: string;
@@ -359,7 +365,11 @@ class WikicommonsClient extends WikiClient {
     });
 
     if (!res.ok) {
-      throw new Error(`Check upload status failed: ${res.status}`);
+      const err: Error & { httpStatus?: number } = new Error(
+        `Check upload status failed: ${res.status}`
+      );
+      err.httpStatus = res.status;
+      throw err;
     }
 
     const data = await res.json();
@@ -379,12 +389,45 @@ class WikicommonsClient extends WikiClient {
 
   // Poll an async upload (chunk assembly or publish) until the server stops
   // returning result "Poll". Returns the final status.
-  private async waitForUploadCompletion(params: CheckUploadStatusParams): Promise<ChunkUploadResult> {
+  // Transient 5xx errors on checkstatus (Wikimedia edge times out while the
+  // server-side job keeps running) are treated as "couldn't check this round,
+  // retry next tick" — the 10-min overall timeout is the real safety net.
+  async waitForUploadCompletion(params: CheckUploadStatusParams): Promise<ChunkUploadResult> {
     const startedAt = Date.now();
+    // Window of consecutive 5xx with no successful checkstatus in between.
+    // Reset to null any time the server actually responds (Poll or final).
+    let firstTransient5xxAt: number | null = null;
     for (;;) {
-      const status = await this.checkUploadStatus(params);
-      if (status.result !== "Poll") {
-        return status;
+      try {
+        const status = await this.checkUploadStatus(params);
+        firstTransient5xxAt = null;
+        console.info("[checkUploadStatus]", {
+          result: status.result ?? null,
+          stage: status.stage ?? null,
+        });
+        if (status.result !== "Poll") {
+          return status;
+        }
+      } catch (err) {
+        const httpStatus = (err as Error & { httpStatus?: number }).httpStatus;
+        // Only swallow transient infrastructure 5xx — deterministic errors
+        // (API error codes, 4xx) must surface immediately.
+        if (httpStatus === undefined || httpStatus < 500) {
+          throw err;
+        }
+        if (firstTransient5xxAt === null) {
+          firstTransient5xxAt = Date.now();
+        }
+        const transient5xxElapsed = Date.now() - firstTransient5xxAt;
+        if (transient5xxElapsed > UPLOAD_TRANSIENT_5XX_BUDGET_MS) {
+          console.error(
+            `[waitForUploadCompletion] HTTP ${httpStatus} persisted for ${Math.round(transient5xxElapsed / 1000)}s; giving up`
+          );
+          throw err;
+        }
+        console.warn(
+          `[waitForUploadCompletion] transient HTTP ${httpStatus} on checkstatus; will retry`
+        );
       }
       if (Date.now() - startedAt > UPLOAD_POLL_TIMEOUT_MS) {
         throw new Error("Перевищено час очікування обробки файлу на сервері Вікісховища");
