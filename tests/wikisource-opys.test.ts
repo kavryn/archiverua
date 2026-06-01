@@ -120,6 +120,7 @@ describe("insertSpravaRow", () => {
     before: "before\n",
     tableStart: '{| class="wikitable sortable"',
     headerLine: "!№!!Назва!!Дати!!Примітки!!",
+    headers: ["№", "Назва", "Дати", "Примітки", ""],
     rows,
     after: "\nafter",
     columnCount: 5,
@@ -185,6 +186,21 @@ describe("insertSpravaRow", () => {
     expect(idx4a).toBeGreaterThan(idx4);
     expect(idx4a).toBeLessThan(idx5);
   });
+
+  it("maps values by header names when an extra column exists", () => {
+    const parsed = {
+      before: "before\n",
+      tableStart: '{| class="wikitable sortable"',
+      headerLine: "!№!!Назва!!Місцевість!!Роки!!Сторінки",
+      headers: ["№", "Назва", "Місцевість", "Роки", "Сторінки"],
+      rows: [makeRow("1")],
+      after: "\nafter",
+      columnCount: 5,
+    };
+
+    const result = insertSpravaRow(parsed, "5", "New", "2020");
+    expect(result).toContain("[[/5/]]||New||||2020||");
+  });
 });
 
 describe("buildOrUpdateOpysContent", () => {
@@ -238,5 +254,34 @@ describe("buildOrUpdateOpysContent", () => {
     expect(result).toContain(existing);
     expect(result).toContain('!№!!Назва!!Роки!!Сторінки!!Примітки');
     expect(result).toContain("[[/3/]]||Назва справи||1920-1930");
+  });
+
+  it("logs a warning and drops values for missing target columns", async () => {
+    const { logWarning } = await import("@/lib/logger");
+    const existing = `{{Архіви/опис
+  | назва = Test
+}}
+
+== Справи ==
+{| class="wikitable sortable"
+!№!!Назва!!Місцевість!!Сторінки!!Примітки
+|-
+|[[/1/]]||Existing||Київ||15||
+|}`;
+
+    const result = buildOrUpdateOpysContent(existing, { ...params, sprava: "5" });
+
+    expect(logWarning).toHaveBeenCalledWith(
+      "wikisource-opys",
+      expect.stringContaining('field "dates"'),
+      expect.objectContaining({
+        title: "Архів:ЦДІАК/Р-203/4а",
+        field: "dates",
+        value: "1920-1930",
+        tableHeaders: ["№", "Назва", "Місцевість", "Сторінки", "Примітки"],
+      })
+    );
+    expect(result).toContain("[[/5/]]||Назва справи||||||");
+    expect(result).not.toContain("[[/5/]]||Назва справи||1920-1930");
   });
 });

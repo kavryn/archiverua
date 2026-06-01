@@ -2,10 +2,13 @@ import {
   parseWikiTable,
   parseOrEmptyTable,
   buildRow,
+  buildMappedRow,
   insertRow,
   naturalCompare,
   type ParsedWikiTable,
   type FallbackSchema,
+  type MissingFieldInfo,
+  type RowFieldAliases,
 } from "./wikitable";
 import { logWarning } from "./logger";
 import { wikisource } from "./wikimedia";
@@ -16,6 +19,27 @@ export interface FondPageParams {
   opys: string;
   opysName: string;
   fondName: string;
+}
+
+const FOND_FIELD_ALIASES: RowFieldAliases = {
+  id: ["№", "Опис"],
+  title: ["Анотація", "Назва"],
+  dates: ["Крайні дати", "Рік", "Роки", "Дата"],
+  pages: ["Справ"],
+};
+
+function logMissingFondField(title: string, info: MissingFieldInfo): void {
+  logWarning(
+    "wikisource-fond",
+    `Could not map field "${info.fieldKey}" while updating ${title}`,
+    {
+      title,
+      field: info.fieldKey,
+      value: info.value,
+      expectedHeaders: info.aliases,
+      tableHeaders: info.headers,
+    }
+  );
 }
 
 export function buildOpysRow(
@@ -54,9 +78,17 @@ export function parseFondPage(content: string): ParsedWikiTable {
 export function insertOpysRow(
   parsed: ParsedWikiTable,
   opys: string,
-  name: string
+  name: string,
+  title?: string
 ): string {
-  const newRow = buildOpysRow(opys, name, parsed.columnCount);
+  const newRow = buildMappedRow(
+    opys,
+    { title: name, dates: "", pages: "" },
+    parsed.headers,
+    FOND_FIELD_ALIASES,
+    "/",
+    title ? (info) => logMissingFondField(title, info) : undefined
+  );
   return insertRow(parsed, opys, newRow, naturalCompare);
 }
 
@@ -77,7 +109,7 @@ export function buildOrUpdateFondContent(
   const parsed = parseOrEmptyTable(existingContent, FOND_SCHEMA, undefined, (err) => {
     logWarning("wikisource-fond", `No wikitable on page ${title}: ${err instanceof Error ? err.message : err}`, { title });
   });
-  return insertOpysRow(parsed, params.opys, params.opysName);
+  return insertOpysRow(parsed, params.opys, params.opysName, title);
 }
 
 export interface UpdateFondPageParams extends FondPageParams {

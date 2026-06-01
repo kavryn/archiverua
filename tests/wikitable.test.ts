@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   buildRow,
+  buildMappedRow,
   parseWikiTable,
   parseOrEmptyTable,
   rebuildPage,
@@ -74,12 +75,14 @@ describe("parseWikiTable", () => {
     const content = `{| class="wikitable sortable"\n!A!!B!!C!!D!!E\n|}`;
     const parsed = parseWikiTable(content);
     expect(parsed.columnCount).toBe(5);
+    expect(parsed.headers).toEqual(["A", "B", "C", "D", "E"]);
   });
 
   it("detects column count with || separators", () => {
     const content = `{| class="wikitable sortable"\n!A||B||C||D\n|}`;
     const parsed = parseWikiTable(content);
     expect(parsed.columnCount).toBe(4);
+    expect(parsed.headers).toEqual(["A", "B", "C", "D"]);
   });
 
   it('parses table with class="wikitable" and || header separators', () => {
@@ -96,6 +99,7 @@ describe("parseWikiTable", () => {
     expect(parsed.rows).toHaveLength(1);
     expect(parsed.rows[0].id).toBe("1");
     expect(parsed.columnCount).toBe(2);
+    expect(parsed.headers).toEqual(["A", "B"]);
   });
 
   it("parses table with style= attribute instead of class", () => {
@@ -116,6 +120,13 @@ describe("parseWikiTable", () => {
     const content = makeTable("!A!!B", "|-\n|[[/1/]]||val");
     const parsed = parseWikiTable(content, { idRegex: /\[\[\.\.\/([^/]+)\/\]\]/ });
     expect(parsed.rows[0].id).toBeNull();
+  });
+
+  it("keeps trailing empty headers", () => {
+    const content = `{| class="wikitable sortable"\n!№!!Назва!!Дати!!Примітки!!\n|}`;
+    const parsed = parseWikiTable(content);
+    expect(parsed.headers).toEqual(["№", "Назва", "Дати", "Примітки", ""]);
+    expect(parsed.columnCount).toBe(5);
   });
 
   it("extracts alphanumeric ids", () => {
@@ -150,6 +161,7 @@ describe("rebuildPage", () => {
       before: "before\n",
       tableStart: '{| class="wikitable sortable"',
       headerLine: "!A!!B",
+      headers: ["A", "B"],
       rows: [{ raw: "|-\n|[[/1/]]||val", id: "1" }],
       after: "\nafter",
       columnCount: 2,
@@ -165,6 +177,7 @@ describe("rebuildPage", () => {
       before: "",
       tableStart: '{| class="wikitable sortable"',
       headerLine: "!A!!B",
+      headers: ["A", "B"],
       rows: [],
       after: "",
       columnCount: 2,
@@ -179,6 +192,7 @@ describe("insertRow", () => {
     before: "before\n",
     tableStart: '{| class="wikitable sortable"',
     headerLine: "!A!!B",
+    headers: ["A", "B"],
     rows,
     after: "\nafter",
     columnCount: 2,
@@ -277,6 +291,7 @@ describe("parseOrEmptyTable", () => {
     expect(parsed.tableStart).toBe(schema.tableStart);
     expect(parsed.headerLine).toBe(schema.headerLine);
     expect(parsed.columnCount).toBe(schema.columnCount);
+    expect(parsed.headers).toEqual(["№", "Назва", "Роки"]);
   });
 
   it("sets before to content + two newlines on fallback", () => {
@@ -297,6 +312,59 @@ describe("parseOrEmptyTable", () => {
     const content = `{| class="wikitable sortable"\n!A!!B\n|-\n|[[../Р-34/]]||val\n|}`;
     const parsed = parseOrEmptyTable(content, schema, { idRegex: /\[\[\.\.\/([^/]+)\/\]\]/ });
     expect(parsed.rows[0].id).toBe("Р-34");
+  });
+});
+
+describe("buildMappedRow", () => {
+  const fieldAliases = {
+    id: ["№"],
+    title: ["Назва"],
+    location: ["Місцевість"],
+    dates: ["Роки", "Дата"],
+    pages: ["Сторінки"],
+  } as const;
+
+  it("maps values by actual headers instead of position", () => {
+    const row = buildMappedRow(
+      "5",
+      { title: "Назва справи", dates: "1920-1930", pages: "12" },
+      ["№", "Назва", "Місцевість", "Роки", "Сторінки"],
+      fieldAliases
+    );
+
+    expect(row).toBe("|-\n|[[/5/]]||Назва справи||||1920-1930||12");
+  });
+
+  it("preserves existing header order when columns are rearranged", () => {
+    const row = buildMappedRow(
+      "5",
+      { title: "Назва справи", dates: "1920-1930", pages: "12" },
+      ["№", "Роки", "Назва", "Сторінки"],
+      fieldAliases
+    );
+
+    expect(row).toBe("|-\n|[[/5/]]||1920-1930||Назва справи||12");
+  });
+
+  it("reports non-empty values that could not be mapped", () => {
+    const onMissingField = vi.fn();
+
+    const row = buildMappedRow(
+      "5",
+      { title: "Назва справи", dates: "1920-1930", pages: "12" },
+      ["№", "Назва", "Роки"],
+      fieldAliases,
+      "/",
+      onMissingField
+    );
+
+    expect(row).toBe("|-\n|[[/5/]]||Назва справи||1920-1930");
+    expect(onMissingField).toHaveBeenCalledWith({
+      fieldKey: "pages",
+      value: "12",
+      aliases: ["Сторінки"],
+      headers: ["№", "Назва", "Роки"],
+    });
   });
 });
 

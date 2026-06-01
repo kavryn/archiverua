@@ -168,6 +168,7 @@ describe("insertFondRow", () => {
     before: "before\n",
     tableStart: '{| class="wikitable sortable"',
     headerLine: "!№||Назва фонду||Крайні дати||Справ",
+    headers: ["№", "Назва фонду", "Крайні дати", "Справ"],
     rows,
     after: "\nafter",
     columnCount: 4,
@@ -215,6 +216,21 @@ describe("insertFondRow", () => {
     const parsed = makeParsed([]);
     const result = insertFondRow(parsed, "Р-1", "First");
     expect(result).toContain("[[../Р-1/]]||First");
+  });
+
+  it("maps fond title into a generic Назва column", () => {
+    const parsed = {
+      before: "before\n",
+      tableStart: '{| class="wikitable sortable"',
+      headerLine: "!Фонд||Назва||Місцевість||Справ",
+      headers: ["Фонд", "Назва", "Місцевість", "Справ"],
+      rows: [makeRow("Р-1")],
+      after: "\nafter",
+      columnCount: 4,
+    };
+
+    const result = insertFondRow(parsed, "Р-5", "New");
+    expect(result).toContain("[[../Р-5/]]||New||||");
   });
 });
 
@@ -267,5 +283,38 @@ describe("buildOrUpdateArchiveContent", () => {
     expect(result).toContain(existing);
     expect(result).toContain("!№||Назва фонду||Крайні дати||Справ");
     expect(result).toContain("[[../Р-5/]]||Новий фонд");
+  });
+
+  it("logs a warning and drops missing mapped values", async () => {
+    const { logWarning } = await import("@/lib/logger");
+    const existing = `{{заголовок
+ | назва = [[../]]
+}}
+
+== Фонди ==
+{| class="wikitable sortable"
+!№||Місцевість||Крайні дати||Справ
+|-
+|[[../Р-1/]]||Київ||2000||10
+|}`;
+
+    const result = buildOrUpdateArchiveContent(existing, {
+      ...params,
+      fond: "Р-5",
+      fondName: "Новий фонд",
+    });
+
+    expect(logWarning).toHaveBeenCalledWith(
+      "wikisource-archive",
+      expect.stringContaining('field "title"'),
+      expect.objectContaining({
+        title: "Архів:ЦДІАК",
+        field: "title",
+        value: "Новий фонд",
+        tableHeaders: ["№", "Місцевість", "Крайні дати", "Справ"],
+      })
+    );
+    expect(result).toContain("[[../Р-5/]]");
+    expect(result).not.toContain("[[../Р-5/]]||Новий фонд");
   });
 });

@@ -1,11 +1,13 @@
 import {
-  parseWikiTable,
   parseOrEmptyTable,
   buildRow,
+  buildMappedRow,
   insertRow,
   naturalCompare,
   type ParsedWikiTable,
   type FallbackSchema,
+  type MissingFieldInfo,
+  type RowFieldAliases,
 } from "./wikitable";
 import { logWarning } from "./logger";
 import { wikisource } from "./wikimedia";
@@ -20,6 +22,28 @@ export interface OpysPageParams {
   spravaName: string;
   opysName: string;
   dates: string;
+}
+
+const OPYS_FIELD_ALIASES: RowFieldAliases = {
+  id: ["№"],
+  title: ["Назва"],
+  dates: ["Рік", "Роки", "Дата", "Дати"],
+  pages: ["Сторінки"],
+  notes: ["Примітки"],
+};
+
+function logMissingOpysField(title: string, info: MissingFieldInfo): void {
+  logWarning(
+    "wikisource-opys",
+    `Could not map field "${info.fieldKey}" while updating ${title}`,
+    {
+      title,
+      field: info.fieldKey,
+      value: info.value,
+      expectedHeaders: info.aliases,
+      tableHeaders: info.headers,
+    }
+  );
 }
 
 export function buildSpravaRow(
@@ -64,9 +88,17 @@ export function insertSpravaRow(
   parsed: ParsedWikiTable,
   sprava: string,
   name: string,
-  dates: string
+  dates: string,
+  title?: string
 ): string {
-  const newRow = buildSpravaRow(sprava, name, dates, parsed.columnCount);
+  const newRow = buildMappedRow(
+    sprava,
+    { title: name, dates, pages: "", notes: "" },
+    parsed.headers,
+    OPYS_FIELD_ALIASES,
+    "/",
+    title ? (info) => logMissingOpysField(title, info) : undefined
+  );
   return insertRow(parsed, sprava, newRow, naturalCompare);
 }
 
@@ -84,7 +116,8 @@ export function buildOrUpdateOpysContent(
     return buildNewOpysPage(params);
   }
   const parsed = parseOpysPage(existingContent, params);
-  return insertSpravaRow(parsed, params.sprava, params.spravaName, params.dates);
+  const title = `Архів:${params.archiveAbbr}/${params.fond}/${params.opys}`;
+  return insertSpravaRow(parsed, params.sprava, params.spravaName, params.dates, title);
 }
 
 export interface UpdateOpysPageParams extends OpysPageParams {

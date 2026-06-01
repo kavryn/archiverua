@@ -35,7 +35,6 @@ describe("buildNewFondPage", () => {
     expect(result).toContain('{| class="wikitable sortable"');
     expect(result).toContain("[[/1/]]||Назва опису");
     expect(result).not.toContain("[[/2/]]");
-    const idx1 = result.indexOf("[[/1/]]");
   });
 
   it("creates page with placeholder + data row when opys!=1", () => {
@@ -140,6 +139,7 @@ describe("insertOpysRow", () => {
     before: "before\n",
     tableStart: '{| class="wikitable sortable"',
     headerLine: "!№!!Анотація!!Крайні дати!!Справ",
+    headers: ["№", "Анотація", "Крайні дати", "Справ"],
     rows,
     after: "\nafter",
     columnCount: 4,
@@ -204,6 +204,21 @@ describe("insertOpysRow", () => {
     const idx5 = result.indexOf("[[/5/]]");
     expect(idx4a).toBeGreaterThan(idx4);
     expect(idx4a).toBeLessThan(idx5);
+  });
+
+  it("maps title into a generic Назва column when headers differ", () => {
+    const parsed = {
+      before: "before\n",
+      tableStart: '{| class="wikitable sortable"',
+      headerLine: "!Опис!!Назва!!Місцевість!!Справ",
+      headers: ["Опис", "Назва", "Місцевість", "Справ"],
+      rows: [makeRow("1")],
+      after: "\nafter",
+      columnCount: 4,
+    };
+
+    const result = insertOpysRow(parsed, "5", "New");
+    expect(result).toContain("[[/5/]]||New||||");
   });
 });
 
@@ -289,5 +304,34 @@ describe("buildOrUpdateFondContent", () => {
     expect(result).toContain(existing);
     expect(result).toContain("!№!!Анотація!!Крайні дати!!Справ");
     expect(result).toContain("[[/3/]]||Новий опис");
+  });
+
+  it("logs a warning and drops missing mapped values", async () => {
+    const { logWarning } = await import("@/lib/logger");
+    const existing = `{{Архіви/фонд
+  | назва = Test
+}}
+
+== Описи ==
+{| class="wikitable sortable"
+!№!!Місцевість!!Крайні дати!!Справ
+|-
+|[[/1/]]||Київ||2000||10
+|}`;
+
+    const result = buildOrUpdateFondContent(existing, { ...params, opys: "5", opysName: "Новий опис" });
+
+    expect(logWarning).toHaveBeenCalledWith(
+      "wikisource-fond",
+      expect.stringContaining('field "title"'),
+      expect.objectContaining({
+        title: "Архів:ЦДІАК/Р-203",
+        field: "title",
+        value: "Новий опис",
+        tableHeaders: ["№", "Місцевість", "Крайні дати", "Справ"],
+      })
+    );
+    expect(result).toContain("[[/5/]]");
+    expect(result).not.toContain("[[/5/]]||Новий опис");
   });
 });

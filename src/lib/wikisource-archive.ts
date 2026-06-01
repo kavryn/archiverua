@@ -1,11 +1,13 @@
 import {
-  parseWikiTable,
   parseOrEmptyTable,
   buildRow,
+  buildMappedRow,
   insertRow,
   naturalCompare,
   type ParsedWikiTable,
   type FallbackSchema,
+  type MissingFieldInfo,
+  type RowFieldAliases,
 } from "./wikitable";
 import { logWarning } from "./logger";
 import { wikisource } from "./wikimedia";
@@ -15,6 +17,27 @@ export interface ArchivePageParams {
   archiveName: string;
   fond: string;
   fondName: string;
+}
+
+const ARCHIVE_FIELD_ALIASES: RowFieldAliases = {
+  id: ["№", "Фонд"],
+  title: ["Назва фонду", "Назва"],
+  dates: ["Крайні дати", "Рік", "Роки", "Дата"],
+  pages: ["Справ"],
+};
+
+function logMissingArchiveField(title: string, info: MissingFieldInfo): void {
+  logWarning(
+    "wikisource-archive",
+    `Could not map field "${info.fieldKey}" while updating ${title}`,
+    {
+      title,
+      field: info.fieldKey,
+      value: info.value,
+      expectedHeaders: info.aliases,
+      tableHeaders: info.headers,
+    }
+  );
 }
 
 export function extractFondPrefix(fond: string): string {
@@ -87,9 +110,17 @@ export function fondCompare(a: string, b: string): number {
 export function insertFondRow(
   parsed: ParsedWikiTable,
   fond: string,
-  name: string
+  name: string,
+  title?: string
 ): string {
-  const newRow = buildFondRow(fond, name, parsed.columnCount);
+  const newRow = buildMappedRow(
+    fond,
+    { title: name, dates: "", pages: "" },
+    parsed.headers,
+    ARCHIVE_FIELD_ALIASES,
+    "../",
+    title ? (info) => logMissingArchiveField(title, info) : undefined
+  );
   return insertRow(parsed, fond, newRow, fondCompare);
 }
 
@@ -107,7 +138,8 @@ export function buildOrUpdateArchiveContent(
     return buildNewArchivePage(params);
   }
   const parsed = parseArchivePage(existingContent, params);
-  return insertFondRow(parsed, params.fond, params.fondName);
+  const title = getArchivePageTitle(params.archiveAbbr, params.fond);
+  return insertFondRow(parsed, params.fond, params.fondName, title);
 }
 
 export interface UpdateArchivePageParams extends ArchivePageParams {

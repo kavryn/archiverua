@@ -7,6 +7,7 @@ export interface ParsedWikiTable {
   before: string;
   tableStart: string;
   headerLine: string;
+  headers: string[];
   rows: ParsedRow[];
   after: string;
   columnCount: number;
@@ -17,6 +18,24 @@ export interface ParseOptions {
   // Default matches [[/1/]], [[/4а/]] → "1", "4а"
   // Archive uses /\[\[\.\.\/([^/]+)\/\]\]/ to match [[../Р-34/]] → "Р-34"
   idRegex?: RegExp;
+}
+
+export type RowFieldAliases = Record<string, readonly string[]>;
+
+export interface MissingFieldInfo {
+  fieldKey: string;
+  value: string;
+  aliases: readonly string[];
+  headers: string[];
+}
+
+function normalizeHeader(header: string): string {
+  return header.replace(/^!+/, "").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+}
+
+function parseHeaderCells(headerLine: string): string[] {
+  const normalizedHeaderLine = headerLine.trimStart().replace(/^!+/, "");
+  return normalizedHeaderLine.split(/!!|\|\|/).map((header) => header.trim());
 }
 
 export function parseWikiTable(content: string, options?: ParseOptions): ParsedWikiTable {
@@ -51,8 +70,8 @@ export function parseWikiTable(content: string, options?: ParseOptions): ParsedW
   }
 
   const headerLine = lines[headerLineIdx];
-  // Count column separators: "!!" in "!№!!Назва" or "||" in "!№||Назва"
-  const columnCount = (headerLine.match(/!!|\|\|/g) || []).length + 1;
+  const headers = parseHeaderCells(headerLine);
+  const columnCount = headers.length;
 
   const rows: ParsedRow[] = [];
   let i = headerLineIdx + 1;
@@ -75,7 +94,7 @@ export function parseWikiTable(content: string, options?: ParseOptions): ParsedW
     }
   }
 
-  return { before, tableStart, headerLine, rows, after, columnCount };
+  return { before, tableStart, headerLine, headers, rows, after, columnCount };
 }
 
 export function rebuildPage(parsed: ParsedWikiTable): string {
@@ -90,6 +109,56 @@ export function buildRow(id: string, cells: string[], columnCount: number, linkP
   const allCells = [`[[${linkPrefix}${id}/]]`, ...cells];
   while (allCells.length < columnCount) allCells.push("");
   if (allCells.length > columnCount) allCells.length = columnCount;
+  return `|-\n|${allCells.join("||")}`;
+}
+
+export function buildMappedRow(
+  id: string,
+  values: Record<string, string>,
+  headers: string[],
+  fieldAliases: RowFieldAliases,
+  linkPrefix = "/",
+  onMissingField?: (info: MissingFieldInfo) => void
+): string {
+  const aliasToField = new Map<string, string>();
+  for (const [fieldKey, aliases] of Object.entries(fieldAliases)) {
+    for (const alias of aliases) {
+      aliasToField.set(normalizeHeader(alias), fieldKey);
+    }
+  }
+
+  const matchedFields = new Set<string>();
+  const allCells = headers.map((header) => {
+    const fieldKey = aliasToField.get(normalizeHeader(header));
+    if (!fieldKey) {
+      return "";
+    }
+
+    matchedFields.add(fieldKey);
+    if (fieldKey === "id") {
+      return `[[${linkPrefix}${id}/]]`;
+    }
+
+    return values[fieldKey] ?? "";
+  });
+
+  if (!matchedFields.has("id") && allCells.length > 0) {
+    allCells[0] = `[[${linkPrefix}${id}/]]`;
+  }
+
+  for (const [fieldKey, value] of Object.entries(values)) {
+    if (!value || matchedFields.has(fieldKey)) {
+      continue;
+    }
+
+    onMissingField?.({
+      fieldKey,
+      value,
+      aliases: fieldAliases[fieldKey] ?? [],
+      headers: [...headers],
+    });
+  }
+
   return `|-\n|${allCells.join("||")}`;
 }
 
@@ -132,14 +201,16 @@ export function parseOrEmptyTable(
   try {
     return parseWikiTable(content, options);
   } catch (err) {
+    const headers = parseHeaderCells(schema.headerLine);
     onFallback?.(err);
     return {
       before: content + "\n\n",
       tableStart: schema.tableStart,
       headerLine: schema.headerLine,
+      headers,
       rows: [],
       after: "",
-      columnCount: schema.columnCount,
+      columnCount: headers.length || schema.columnCount,
     };
   }
 }
