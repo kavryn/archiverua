@@ -27,7 +27,7 @@ export interface OpysPageParams {
 const OPYS_FIELD_ALIASES: RowFieldAliases = {
   id: ["№"],
   title: ["Назва"],
-  dates: ["Рік", "Роки", "Дата", "Дати"],
+  dates: ["Крайні дати", "Рік", "Роки", "Дата", "Дати"],
   pages: ["Сторінки"],
   notes: ["Примітки"],
 };

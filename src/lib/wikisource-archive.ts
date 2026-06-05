@@ -22,7 +22,7 @@ export interface ArchivePageParams {
 const ARCHIVE_FIELD_ALIASES: RowFieldAliases = {
   id: ["№", "Фонд"],
   title: ["Назва фонду", "Назва"],
-  dates: ["Крайні дати", "Рік", "Роки", "Дата"],
+  dates: ["Крайні дати", "Рік", "Роки", "Дата", "Дати"],
   pages: ["Справ"],
 };
 
