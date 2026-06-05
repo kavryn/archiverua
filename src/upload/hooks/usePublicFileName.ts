@@ -14,17 +14,34 @@ export function getFileNameStem(name: string): string {
   return dot > 0 ? name.slice(0, dot) : name;
 }
 
+export function getStrictFileNameDateLabel(entry: Pick<FileEntry, "dateMode" | "dateFrom" | "dateTo">): string | null {
+  const from = entry.dateFrom.trim();
+  const to = entry.dateTo.trim();
+  const YEAR_RE = /^\d{4}$/;
+
+  if (entry.dateMode === "single") {
+    return YEAR_RE.test(from) ? from : null;
+  }
+
+  if (entry.dateMode !== "range" || !YEAR_RE.test(from) || !YEAR_RE.test(to)) {
+    return null;
+  }
+
+  return from === to ? from : `${from}-${to}`;
+}
+
 export function buildAutoFileName(entry: FileEntry): string {
   if (!entry.archive || !entry.fond || !entry.opys || !entry.sprava) return "";
   const ext = entry.file.name.split(".").pop() ?? "pdf";
   const spravaName = entry.spravaName.trim();
   const fondNoHyphen = entry.fond.replace(/-/g, "");
-  const prefix = `${entry.archive.abbr} ${fondNoHyphen}-${entry.opys}-${entry.sprava}. `;
   const suffix = `.${ext}`;
-//   const maxNameLen = 75 - prefix.length - suffix.length;
+  const dateLabel = getStrictFileNameDateLabel(entry);
+  const reference = `${entry.archive.abbr} ${fondNoHyphen}-${entry.opys}-${entry.sprava}`;
+//   const maxNameLen = 75 - reference.length - suffix.length;
 //   const truncated = spravaName.slice(0, Math.max(0, maxNameLen));
   const truncated = spravaName;
-  const raw = `${prefix}${truncated}${suffix}`;
+  const raw = [reference, dateLabel, truncated].filter(Boolean).join(". ") + suffix;
   return raw.replace(/[:/\\]/g, "");
 }
 
