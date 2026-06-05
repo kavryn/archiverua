@@ -6,7 +6,7 @@ export interface Archive {
 
 export const ARCHIVES: Archive[] = [
   { name: "Центральний державний історичний архів України, м. Київ", abbr: "ЦДІАК", category: "Funds of Central State Historical Archives of Ukraine in Kyiv" },
-  { name: "Центральний державний історичний архів України, м. Львів", abbr: "ЦДІАЛ", category: "Funds of The Central State Historical Archive in Lviv" },
+  { name: "Центральний державний історичний архів України, м. Львів", abbr: "ЦДІАЛ", category: "Funds of Central State Historical Archives of Ukraine in Lviv" },
   { name: "Центральний державний архів вищих органів влади та управління України", abbr: "ЦДАВО", category: "Funds of Central State Archives of Supreme Bodies of Power and Government of Ukraine" },
   { name: "Державний архів Вінницької області", abbr: "ДАВіО", category: "Funds of State Archive of Vinnytsia Oblast" },
   { name: "Державний архів Волинської області", abbr: "ДАВоО", category: "Funds of State Archive of Volyn Oblast" },
