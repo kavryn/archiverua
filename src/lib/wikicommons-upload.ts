@@ -1,7 +1,5 @@
 export interface CommonsDescriptionParams {
   archiveAbbr: string;
-  archiveName: string;
-  category: string;
   fond: string;
   opys: string;
   sprava: string;
@@ -25,7 +23,7 @@ export function buildCommonsDescription(params: CommonsDescriptionParams): strin
 
   return `=={{int:filedesc}}==
 {{Information
-|description={{uk|1=${params.archiveName}. Фонд ${params.fond}, опис ${params.opys}, справа ${params.sprava}${params.spravaName ? `. ${params.spravaName}` : ""}}}
+|description={{uk|1=Фонд ${params.fond}, опис ${params.opys}, справа ${params.sprava}${params.spravaName ? `. ${params.spravaName}` : ""}}}
 |date=${dateStr}
 |source={{Archive Ukraine|${params.archiveAbbr}|${params.fond}|${params.opys}|${params.sprava}}}
 |author=${params.author ? params.author : "{{author|unknown}}"}
