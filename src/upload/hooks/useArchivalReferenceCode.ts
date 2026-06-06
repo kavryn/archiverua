@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { emptyNameState, emptySpravaWikisource, type FileEntry, type NameFieldState, type SpravaWikisourceState } from "../types";
+import { normalizeFond, normalizeOpysSprava } from "../archivalReference";
 import type { Archive } from "@/lib/archives";
 import { apiFetch } from "@/lib/api-fetch";
 
@@ -49,30 +50,13 @@ async function fetchSprava(
   }
 }
 
-/**
- * Changes from "р203" to "Р-203"
- */
-function normalizeFond(v: string): string {
-  let r = v.replace(/[\s\/]/g, "").toUpperCase();
-  if (r.length >= 2 && /[A-ZА-ЯІЇЄҐ]/.test(r[0]) && /\d/.test(r[1])) {
-    r = r[0] + "-" + r.slice(1);
-  }
-  return r;
-}
-
-/**
- * Changes from "4-А" to "4а"
- */
-function normalizeOpysSprava(v: string): string {
-  return v.replace(/[\s\-\/]/g, "").toLowerCase();
-}
-
 export function useArchivalReferenceCode(
   entry: FileEntry,
   onUpdate: (patch: Patch) => void
 ) {
   const onUpdateRef = useRef(onUpdate);
   onUpdateRef.current = onUpdate;
+  const shouldBootstrapFetchRef = useRef(Boolean(entry.archive && entry.fond));
 
   const [fetchTick, setFetchTick] = useState(0);
   function triggerFetch() { setFetchTick(t => t + 1); }
@@ -96,6 +80,12 @@ export function useArchivalReferenceCode(
     onUpdate({ archive: newArchive });
     triggerFetch();
   }
+
+  useEffect(() => {
+    if (!shouldBootstrapFetchRef.current) return;
+    shouldBootstrapFetchRef.current = false;
+    triggerFetch();
+  }, []);
 
   useEffect(() => {
     if (fetchTick === 0) return;

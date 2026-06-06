@@ -1,5 +1,6 @@
 import type { Archive } from "@/lib/archives";
 import { type DateMode } from "./components/DateFields";
+import { parseArchivalReferenceFromFileName } from "./archivalReference";
 
 export interface NameFieldState {
   value: string;
@@ -78,12 +79,14 @@ export interface FileEntry {
 }
 
 export function makeEntry(file: File): FileEntry {
+  const parsedReference = parseArchivalReferenceFromFileName(file.name);
+
   return {
     file,
-    archive: null,
-    fond: "",
-    opys: "",
-    sprava: "",
+    archive: parsedReference?.archive ?? null,
+    fond: parsedReference?.fond ?? "",
+    opys: parsedReference?.opys ?? "",
+    sprava: parsedReference?.sprava ?? "",
     dateMode: "range",
     dateFrom: "",
     dateTo: "",
