@@ -78,6 +78,7 @@ function getUploadMetadata(entry: FileEntry): UploadMetadata {
   return {
     filename,
     description: buildCommonsDescription({
+      archiveAbbr: entry.archive.abbr,
       archiveName: entry.archive.name,
       category: entry.archive.category,
       fond: entry.fond,
