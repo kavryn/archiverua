@@ -3,6 +3,7 @@ import DateFields, { type DateState } from "./DateFields";
 import FieldError from "./FieldError";
 import LicenseField from "./LicenseField";
 import LicenseHelpPopup from "./LicenseHelpPopup";
+import WikisourceNameField from "./WikisourceNameField";
 import { type FileEntry, isFondNameEnabled, isOpysNameEnabled } from "../types";
 import { buildAutoFileName, isFileNameEnabled, usePublicFileName } from "../hooks/usePublicFileName";
 import { getEntryErrors } from "../validation";
@@ -105,58 +106,37 @@ export default function EntryCard({ entry, onUpdate }: EntryCardProps) {
 
       {/* Name fields */}
       <div className="flex flex-col gap-2">
-        <div>
-          <label className="label">
-            Назва фонду
-          </label>
-          <input
-            type="text"
-            disabled={!isFondNameEnabled(entry)}
-            value={
-              entry.fondName.loading
-                ? ""
-                : entry.fondName.exists
-                ? entry.fondName.fetched
-                : entry.fondName.value
-            }
-            onChange={(e) =>
-              !entry.fondName.loading &&
-              !entry.fondName.exists &&
-              onUpdate({ fondName: { ...entry.fondName, value: e.target.value } })
-            }
-            placeholder={entry.fondName.loading ? "Завантаження…" :
-                entry.fondName.lastFetchedTitle === "" ? "Автоматично. Спершу введіть архів та фонд." :
-                "Офіційна назва фонду"}
-            className="input"
-          />
-          <FieldError error={errors.fondName} />
-        </div>
+        <WikisourceNameField
+          label="Назва фонду"
+          compactLabel="Фонд"
+          state={entry.fondName}
+          enabled={isFondNameEnabled(entry)}
+          placeholder={
+            entry.fondName.loading
+              ? "Завантаження…"
+              : "Офіційна назва фонду"
+          }
+          error={errors.fondName}
+          onChange={(value) =>
+            onUpdate({ fondName: { ...entry.fondName, value } })
+          }
+        />
 
-        <div>
-          <label className="label">
-            Назва опису <span className="text-zinc-400">(необовʼязково)</span>
-          </label>
-          <input
-            type="text"
-            disabled={!isOpysNameEnabled(entry)}
-            value={
-              entry.opysName.loading
-                ? ""
-                : entry.opysName.exists
-                ? entry.opysName.fetched
-                : entry.opysName.value
-            }
-            onChange={(e) =>
-              !entry.opysName.loading &&
-              !entry.opysName.exists &&
-              onUpdate({ opysName: { ...entry.opysName, value: e.target.value } })
-            }
-            placeholder={entry.opysName.loading ? "Завантаження…" :
-                 entry.opysName.lastFetchedTitle === "" ? "Автоматично. Спершу введіть архів, фонд та опис." :
-                 "Офіційна назва опису"}
-            className="input"
-          />
-        </div>
+        <WikisourceNameField
+          label="Назва опису"
+          compactLabel="Опис"
+          optional
+          state={entry.opysName}
+          enabled={isOpysNameEnabled(entry)}
+          placeholder={
+            entry.opysName.loading
+              ? "Завантаження…"
+              : "Офіційна назва опису"
+          }
+          onChange={(value) =>
+            onUpdate({ opysName: { ...entry.opysName, value } })
+          }
+        />
 
         <div>
           <label className="label">
