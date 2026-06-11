@@ -14,10 +14,8 @@ export default function UploadWizard({ directUploadEnabled }: { directUploadEnab
     zipConversions,
     isAnyConverting,
     updateEntry,
-    handleAddFiles,
-    handleAddZips,
-    handleCancelZip,
-    handleDismissZip,
+    handleAdd,
+    handleRemoveZipChip,
     handleRemoveFile,
     handleContinue,
     handleBack,
@@ -29,14 +27,12 @@ export default function UploadWizard({ directUploadEnabled }: { directUploadEnab
       <div className="flex flex-col gap-4">
         <FileDropZone
           files={files}
-          onAdd={handleAddFiles}
-          onAddZips={handleAddZips}
+          onAdd={handleAdd}
           onRemove={handleRemoveFile}
         />
         <ZipConversionList
           conversions={zipConversions}
-          onCancel={handleCancelZip}
-          onDismiss={handleDismissZip}
+          onRemove={handleRemoveZipChip}
         />
         <button
           type="button"

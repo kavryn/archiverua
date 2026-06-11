@@ -6,7 +6,6 @@ import { TrashIcon } from "@heroicons/react/24/outline";
 interface Props {
   files: File[];
   onAdd: (files: File[]) => void;
-  onAddZips: (files: File[]) => void;
   onRemove: (index: number) => void;
 }
 
@@ -16,18 +15,14 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
-function partitionFiles(fileList: FileList | File[]): { ready: File[]; zips: File[] } {
-  const ready: File[] = [];
-  const zips: File[] = [];
-  for (const f of Array.from(fileList)) {
+function filterAcceptedFiles(fileList: FileList | File[]): File[] {
+  return Array.from(fileList).filter((f) => {
     const name = f.name.toLowerCase();
-    if (name.endsWith(".pdf") || name.endsWith(".djvu")) ready.push(f);
-    else if (name.endsWith(".zip")) zips.push(f);
-  }
-  return { ready, zips };
+    return name.endsWith(".pdf") || name.endsWith(".djvu") || name.endsWith(".zip");
+  });
 }
 
-export default function FileDropZone({ files, onAdd, onAddZips, onRemove }: Props) {
+export default function FileDropZone({ files, onAdd, onRemove }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -35,15 +30,9 @@ export default function FileDropZone({ files, onAdd, onAddZips, onRemove }: Prop
     inputRef.current?.click();
   }
 
-  function dispatch(list: FileList | File[]) {
-    const { ready, zips } = partitionFiles(list);
-    if (ready.length > 0) onAdd(ready);
-    if (zips.length > 0) onAddZips(zips);
-  }
-
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
-      dispatch(e.target.files);
+      onAdd(filterAcceptedFiles(e.target.files));
       e.target.value = "";
     }
   }
@@ -61,7 +50,7 @@ export default function FileDropZone({ files, onAdd, onAddZips, onRemove }: Prop
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
-    dispatch(Array.from(e.dataTransfer.files));
+    onAdd(filterAcceptedFiles(Array.from(e.dataTransfer.files)));
   }
 
   return (

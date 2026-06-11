@@ -5,11 +5,10 @@ import type { ZipConversionState } from "../hooks/useUploadWizard";
 
 interface Props {
   conversions: ZipConversionState[];
-  onCancel: (id: string) => void;
-  onDismiss: (id: string) => void;
+  onRemove: (id: string) => void;
 }
 
-export default function ZipConversionList({ conversions, onCancel, onDismiss }: Props) {
+export default function ZipConversionList({ conversions, onRemove }: Props) {
   if (conversions.length === 0) return null;
 
   return (
@@ -29,7 +28,7 @@ export default function ZipConversionList({ conversions, onCancel, onDismiss }: 
               <span className="mr-2 truncate text-base text-zinc-700">{c.zipName}</span>
               <button
                 type="button"
-                onClick={() => (isActive ? onCancel(c.id) : onDismiss(c.id))}
+                onClick={() => onRemove(c.id)}
                 className="shrink-0 text-zinc-400 transition-colors hover:text-red-500"
                 aria-label={`Видалити ${c.zipName}`}
               >

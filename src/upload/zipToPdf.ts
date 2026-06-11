@@ -182,6 +182,10 @@ export type ZipConversionResult = {
   opfsName: string;
 };
 
+export function pdfNameForZip(zipName: string): string {
+  return zipName.replace(/\.zip$/i, "") + ".pdf";
+}
+
 export type ImageSource = {
   name: string;
   getBytes: (signal?: AbortSignal) => Promise<Uint8Array>;
@@ -274,7 +278,7 @@ export async function convertZipToPdf(
     await reader.close().catch(() => undefined);
 
     const file = await handle.getFile();
-    const pdfName = zipFile.name.replace(/\.zip$/i, "") + ".pdf";
+    const pdfName = pdfNameForZip(zipFile.name);
     return {
       file: new File([file], pdfName, { type: "application/pdf" }),
       opfsName,
