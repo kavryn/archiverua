@@ -11,6 +11,11 @@ import {
   removeOpfsFile,
   ZipValidationError,
 } from "../zipToPdf";
+import {
+  renderPdfPageBlob,
+  revokeThumbUrls,
+  type PdfThumb,
+} from "../pdfPreview";
 import { useNavigationGuard } from "@/context/NavigationGuardContext";
 
 const MAX_CONCURRENT_UPLOADS = 3;
@@ -19,6 +24,12 @@ const MAX_CONCURRENT_UPLOADS = 3;
 // embedding all run on the main thread (web workers off for OPFS visibility).
 // Run conversions serially so dropping many archives doesn't freeze the UI.
 const zipConversionLimit = pLimit(1);
+
+export type ZipPreview = {
+  thumbs: PdfThumb[];
+  totalPages: number;
+  loadFull: (index: number) => Promise<Blob>;
+};
 
 export type ZipConversionState = {
   id: string;
@@ -36,13 +47,26 @@ export function useUploadWizard(directUploadEnabled: boolean) {
   const [files, setFiles] = useState<File[]>([]);
   const [fileStates, setFileStates] = useState<FileEntry[]>([]);
   const [zipConversions, setZipConversions] = useState<ZipConversionState[]>([]);
+  const [zipPreviews, setZipPreviews] = useState<Map<string, ZipPreview>>(new Map());
   const zipControllersRef = useRef<Map<string, AbortController>>(new Map());
   // We forbid two files with the same name in `files` (see handleAddFiles /
   // handleAddZips), so name → opfsName is a safe lookup.
   const opfsNamesRef = useRef<Map<string, string>>(new Map());
+  const zipPreviewsRef = useRef<Map<string, ZipPreview>>(zipPreviews);
+
+  useEffect(() => {
+    zipPreviewsRef.current = zipPreviews;
+  }, [zipPreviews]);
 
   useEffect(() => {
     cleanupStaleTmpFiles();
+  }, []);
+
+  // Revoke any leftover blob URLs when the wizard unmounts.
+  useEffect(() => {
+    return () => {
+      for (const p of zipPreviewsRef.current.values()) revokeThumbUrls(p.thumbs);
+    };
   }, []);
 
   function updateEntry(index: number, patch: Partial<FileEntry> | ((e: FileEntry) => Partial<FileEntry>)) {
@@ -125,6 +149,14 @@ export function useUploadWizard(directUploadEnabled: boolean) {
       opfsNamesRef.current.delete(fileToRemove.name);
       removeOpfsFile(opfsName);
     }
+    setZipPreviews((prev) => {
+      const existing = prev.get(fileToRemove.name);
+      if (!existing) return prev;
+      revokeThumbUrls(existing.thumbs);
+      const next = new Map(prev);
+      next.delete(fileToRemove.name);
+      return next;
+    });
   }
 
   function startZipConversion(zip: File) {
@@ -177,9 +209,21 @@ export function useUploadWizard(directUploadEnabled: boolean) {
         // by discarding the artifact instead of resurrecting it in the list.
         if (controller.signal.aborted) {
           removeOpfsFile(result.opfsName);
+          revokeThumbUrls(result.previews);
           return;
         }
         opfsNamesRef.current.set(result.file.name, result.opfsName);
+        const pdfFile = result.file;
+        const loadFull = (i: number) => renderPdfPageBlob(pdfFile, i);
+        setZipPreviews((prev) => {
+          const next = new Map(prev);
+          next.set(result.file.name, {
+            thumbs: result.previews,
+            totalPages: result.totalPages,
+            loadFull,
+          });
+          return next;
+        });
         setZipConversions((prev) => prev.filter((c) => c.id !== id));
         setFiles((prev) => [...prev, result.file]);
       },
@@ -306,5 +350,6 @@ export function useUploadWizard(directUploadEnabled: boolean) {
     handleContinue,
     handleBack,
     handleSubmit,
+    zipPreviews,
   };
 }

@@ -6,9 +6,13 @@ import {
   configure,
 } from "@zip.js/zip.js";
 
+import { renderPdfThumbnails, type PdfThumb } from "./pdfPreview";
+
 configure({ useWebWorkers: false });
 
 const TMP_PREFIX = "ziptmp-";
+
+export const PREVIEW_LIMIT = 10;
 
 export type ZipConversionProgress = {
   phase: "validating" | "converting";
@@ -180,6 +184,8 @@ export async function validateZip(
 export type ZipConversionResult = {
   file: File;
   opfsName: string;
+  previews: PdfThumb[];
+  totalPages: number;
 };
 
 export function pdfNameForZip(zipName: string): string {
@@ -279,9 +285,27 @@ export async function convertZipToPdf(
 
     const file = await handle.getFile();
     const pdfName = pdfNameForZip(zipFile.name);
+    const pdfFile = new File([file], pdfName, { type: "application/pdf" });
+
+    // Previews come from the generated PDF — the artifact actually uploaded
+    // to Commons — so what the user sees IS what gets uploaded. A preview
+    // failure must not poison the otherwise-valid conversion result.
+    let previews: PdfThumb[] = [];
+    let pdfPages = total;
+    try {
+      const rendered = await renderPdfThumbnails(pdfFile, PREVIEW_LIMIT, signal);
+      previews = rendered.thumbs;
+      pdfPages = rendered.totalPages;
+    } catch (previewErr) {
+      if (signal?.aborted) throw previewErr;
+      // Swallow: user still gets a valid PDF without thumbnails.
+    }
+
     return {
-      file: new File([file], pdfName, { type: "application/pdf" }),
+      file: pdfFile,
       opfsName,
+      previews,
+      totalPages: pdfPages,
     };
   } catch (err) {
     await reader.close().catch(() => undefined);
