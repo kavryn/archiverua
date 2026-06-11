@@ -92,37 +92,55 @@ async function renderPageToBlob(
   return { blob, width, height };
 }
 
+// Extracted so the URL-creation invariant ("every minted URL must be
+// revoked if the loop fails") is testable without spinning up pdf.js
+// and a real canvas. `renderPage` is the only side-effectful seam.
+export async function renderThumbsLoop(
+  count: number,
+  renderPage: (i: number) => Promise<{ blob: Blob; width: number; height: number }>,
+  signal?: AbortSignal,
+): Promise<PdfThumb[]> {
+  const thumbs: PdfThumb[] = [];
+  try {
+    for (let i = 1; i <= count; i++) {
+      if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+      const { blob, width, height } = await renderPage(i);
+      thumbs.push({
+        url: URL.createObjectURL(blob),
+        name: `Сторінка ${i}`,
+        width,
+        height,
+      });
+    }
+    return thumbs;
+  } catch (err) {
+    revokeThumbUrls(thumbs);
+    throw err;
+  }
+}
+
 export async function renderPdfThumbnails(
   pdfFile: File,
   limit: number,
   signal?: AbortSignal,
 ): Promise<{ thumbs: PdfThumb[]; totalPages: number }> {
   const { doc, dispose } = await openPdf(pdfFile);
-  const thumbs: PdfThumb[] = [];
   try {
     const totalPages = doc.numPages;
     const count = Math.min(limit, totalPages);
-    for (let i = 1; i <= count; i++) {
-      if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
-      const page = await doc.getPage(i);
-      try {
-        const { blob, width, height } = await renderPageToBlob(page, PREVIEW_THUMB_MAX_DIM);
-        thumbs.push({
-          url: URL.createObjectURL(blob),
-          name: `Сторінка ${i}`,
-          width,
-          height,
-        });
-      } finally {
-        await page.cleanup();
-      }
-    }
+    const thumbs = await renderThumbsLoop(
+      count,
+      async (i) => {
+        const page = await doc.getPage(i);
+        try {
+          return await renderPageToBlob(page, PREVIEW_THUMB_MAX_DIM);
+        } finally {
+          await page.cleanup();
+        }
+      },
+      signal,
+    );
     return { thumbs, totalPages };
-  } catch (err) {
-    // Partial progress is unreachable once we throw — release any URLs we
-    // already minted before propagating.
-    revokeThumbUrls(thumbs);
-    throw err;
   } finally {
     await dispose();
   }
