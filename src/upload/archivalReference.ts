@@ -98,24 +98,39 @@ function parseCodeFromTokens(rest: string): {
   return parseCodeParts(tokens[0], tokens[1], tokens[2]);
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Example: "ІР НБУВ" becomes /^ІР[\s._-]+НБУВ(?=$|[\s._-])/iu,
+// so file names like "ІР_НБУВ_123-4-5.pdf" and "ІР-НБУВ 123-4-5.pdf" both match.
+function getArchivePrefixPattern(abbr: string): RegExp {
+  // Allow file names to replace spaces inside archive abbreviations with common separators.
+  const parts = abbr.trim().split(/\s+/u).map(escapeRegExp);
+  const pattern = parts.join("[\\s._-]+");
+  return new RegExp(`^${pattern}(?=$|[\\s._-])`, "iu");
+}
+
 function findArchivePrefix(fileNameStem: string): { archive: Archive; rest: string } | null {
   const trimmed = fileNameStem.trim();
-  const upper = trimmed.toUpperCase();
 
-  const archive = [...ARCHIVES]
-    .sort((a, b) => b.abbr.length - a.abbr.length)
-    .find((candidate) => {
-      if (!upper.startsWith(candidate.abbr.toUpperCase())) return false;
-      const nextChar = trimmed[candidate.abbr.length] ?? "";
-      return nextChar === "" || /[\s._-]/.test(nextChar);
-    });
+  // Prefer the most specific abbreviation when one archive prefix is contained in another.
+  const sorted = [...ARCHIVES].sort(
+    (a, b) => b.abbr.replace(/\s+/gu, "").length - a.abbr.replace(/\s+/gu, "").length,
+  );
 
-  if (!archive) return null;
+  for (const candidate of sorted) {
+    const match = trimmed.match(getArchivePrefixPattern(candidate.abbr));
+    if (!match) continue;
 
-  const rest = trimmed.slice(archive.abbr.length).replace(/^[\s._-]+/u, "");
-  if (!rest) return null;
+    // Strip the matched archive prefix so the remaining tokens can be parsed as fond/opys/sprava.
+    const rest = trimmed.slice(match[0].length).replace(/^[\s._-]+/u, "");
+    if (!rest) return null;
 
-  return { archive, rest };
+    return { archive: candidate, rest };
+  }
+
+  return null;
 }
 
 export function parseArchivalReferenceFromFileName(fileName: string): ParsedArchivalReference | null {
