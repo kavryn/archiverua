@@ -14,6 +14,18 @@ describe("normalizeFond", () => {
   it("removes spaces before normalizing", () => {
     expect(normalizeFond(" р 203 ")).toBe("Р-203");
   });
+
+  it("strips leading zeros from a numeric fond", () => {
+    expect(normalizeFond("0203")).toBe("203");
+  });
+
+  it("strips leading zeros from a prefixed fond", () => {
+    expect(normalizeFond("р0203")).toBe("Р-203");
+  });
+
+  it("keeps a single zero", () => {
+    expect(normalizeFond("0")).toBe("0");
+  });
 });
 
 describe("normalizeOpysSprava", () => {
@@ -23,6 +35,15 @@ describe("normalizeOpysSprava", () => {
 
   it("removes spaces and hyphens before lowercasing", () => {
     expect(normalizeOpysSprava(" 4 - А ")).toBe("4а");
+  });
+
+  it("strips leading zeros", () => {
+    expect(normalizeOpysSprava("04а")).toBe("4а");
+    expect(normalizeOpysSprava("007")).toBe("7");
+  });
+
+  it("keeps a single zero", () => {
+    expect(normalizeOpysSprava("0")).toBe("0");
   });
 });
 

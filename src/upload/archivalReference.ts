@@ -11,6 +11,10 @@ export interface ParsedArchivalReference {
   sprava: string;
 }
 
+function stripLeadingZeros(value: string): string {
+  return value.replace(/^(0+)(\d)/, "$2");
+}
+
 /**
  * Changes from "р203" to "Р-203"
  */
@@ -19,14 +23,18 @@ export function normalizeFond(value: string): string {
   if (result.length >= 2 && /[A-ZА-ЯІЇЄҐ]/.test(result[0]) && /\d/.test(result[1])) {
     result = `${result[0]}-${result.slice(1)}`;
   }
-  return result;
+  const dashIndex = result.indexOf("-");
+  if (dashIndex >= 0) {
+    return `${result.slice(0, dashIndex + 1)}${stripLeadingZeros(result.slice(dashIndex + 1))}`;
+  }
+  return stripLeadingZeros(result);
 }
 
 /**
  * Changes from "4-А" to "4а"
  */
 export function normalizeOpysSprava(value: string): string {
-  return value.replace(/[\s-]/g, "").toLowerCase();
+  return stripLeadingZeros(value.replace(/[\s-]/g, "").toLowerCase());
 }
 
 function getFileNameStem(name: string): string {
