@@ -97,8 +97,8 @@ export interface EditWikisourcePageParams {
 }
 
 export interface WikisourcePageRevision {
-  content: string;
-  basetimestamp: string;
+  content: string | null;
+  basetimestamp?: string;
   starttimestamp: string;
 }
 
@@ -556,14 +556,16 @@ class WikisourceClient extends WikiClient {
     if (!pages) return null;
 
     const page = Object.values(pages)[0] as Record<string, unknown>;
-    if ("missing" in page) return null;
+    if ("missing" in page) {
+      return { content: null, starttimestamp };
+    }
 
     const revisions = page?.revisions as Array<Record<string, unknown>> | undefined;
     const firstRev = revisions?.[0];
-    if (!firstRev) return null;
+    if (!firstRev) return { content: null, starttimestamp };
     const slots = firstRev?.slots as Record<string, Record<string, string>> | undefined;
     const content = slots?.main?.["*"] ?? (firstRev?.["*"] as string) ?? null;
-    if (content === null) return null;
+    if (content === null) return { content: null, starttimestamp };
     const basetimestamp = firstRev.timestamp as string;
     return { content, basetimestamp, starttimestamp };
   }
@@ -636,7 +638,7 @@ export async function updateWikisourcePage(
         basetimestamp: existing?.basetimestamp,
         starttimestamp: existing?.starttimestamp,
       });
-      return { url, created: existing === null };
+      return { url, created: existing === null || existing.content === null };
     } catch (err) {
       if (!(err instanceof EditConflictError)) throw err;
       lastConflict = err;

@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const revision = await wikisource.getPageContent(session.accessToken, title);
-    if (revision === null) return NextResponse.json({ name: null, exists: false });
+    if (revision === null || revision.content === null) {
+      return NextResponse.json({ name: null, exists: false });
+    }
 
     const match = revision.content.match(/\|\s*назва\s*=\s*([^\n|{}]+)/);
 
