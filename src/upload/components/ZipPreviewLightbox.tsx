@@ -23,7 +23,10 @@ export default function ZipPreviewLightbox({
   // Cache of resolved full-resolution blob URLs by thumb index, plus
   // in-flight promises so concurrent ensureFull calls coalesce.
   const fullUrlsRef = useRef<Map<number, string>>(new Map());
-  const inFlightRef = useRef<Map<number, Promise<string>>>(new Map());
+  const inFlightRef = useRef<Map<number, Promise<string | null>>>(new Map());
+  // Set on unmount. Once true, any newly-resolved blob must be revoked
+  // immediately because nothing will ever read it.
+  const unmountedRef = useRef(false);
   const [fullUrl, setFullUrl] = useState<string | null>(null);
   const [fullLoaded, setFullLoaded] = useState(false);
 
@@ -46,11 +49,14 @@ export default function ZipPreviewLightbox({
     };
   }, [thumbs.length, onClose]);
 
-  // Revoke all cached full-res URLs on unmount.
+  // Revoke all cached full-res URLs on unmount. In-flight promises that
+  // resolve after unmount get their URLs revoked inline by ensureFull via
+  // the unmountedRef check.
   useEffect(() => {
     const cache = fullUrlsRef.current;
     const inFlight = inFlightRef.current;
     return () => {
+      unmountedRef.current = true;
       for (const url of cache.values()) URL.revokeObjectURL(url);
       cache.clear();
       inFlight.clear();
@@ -60,13 +66,16 @@ export default function ZipPreviewLightbox({
   // Shared, cache-and-coalesce loader. Used both for the current page and
   // for neighbor prefetch — both feed the same cache.
   const ensureFull = useCallback(
-    (i: number): Promise<string> => {
+    (i: number): Promise<string | null> => {
       const cached = fullUrlsRef.current.get(i);
       if (cached) return Promise.resolve(cached);
       const inFlight = inFlightRef.current.get(i);
       if (inFlight) return inFlight;
       const p = loadFull(i)
         .then((blob) => {
+          // Component unmounted while we were decoding — nothing will ever
+          // revoke a URL we put in the cache now, so just drop the blob.
+          if (unmountedRef.current) return null;
           const existing = fullUrlsRef.current.get(i);
           if (existing) return existing;
           const url = URL.createObjectURL(blob);
@@ -92,7 +101,7 @@ export default function ZipPreviewLightbox({
     if (!cached) {
       ensureFull(index).then(
         (url) => {
-          if (cancelled) return;
+          if (cancelled || !url) return;
           setFullUrl(url);
         },
         () => {

@@ -98,10 +98,10 @@ export async function renderPdfThumbnails(
   signal?: AbortSignal,
 ): Promise<{ thumbs: PdfThumb[]; totalPages: number }> {
   const { doc, dispose } = await openPdf(pdfFile);
+  const thumbs: PdfThumb[] = [];
   try {
     const totalPages = doc.numPages;
     const count = Math.min(limit, totalPages);
-    const thumbs: PdfThumb[] = [];
     for (let i = 1; i <= count; i++) {
       if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
       const page = await doc.getPage(i);
@@ -118,6 +118,11 @@ export async function renderPdfThumbnails(
       }
     }
     return { thumbs, totalPages };
+  } catch (err) {
+    // Partial progress is unreachable once we throw — release any URLs we
+    // already minted before propagating.
+    revokeThumbUrls(thumbs);
+    throw err;
   } finally {
     await dispose();
   }
