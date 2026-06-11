@@ -115,10 +115,3 @@ export function makeEntry(file: File): FileEntry {
   };
 }
 
-export function isFondNameEnabled(entry: FileEntry): boolean {
-  return entry.fondName.lastFetchedTitle !== "" && !entry.fondName.loading && !entry.fondName.exists;
-}
-
-export function isOpysNameEnabled(entry: FileEntry): boolean {
-  return entry.opysName.lastFetchedTitle !== "" && !entry.opysName.loading && !entry.opysName.exists;
-}

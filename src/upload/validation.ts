@@ -1,5 +1,4 @@
 import type { FileEntry } from "./types";
-import { isFondNameEnabled } from "./types";
 import { isFileNameEnabled, getEffectiveFileName } from "./hooks/usePublicFileName";
 
 const INTEGER_RE = /^\d+$/;
@@ -62,7 +61,6 @@ export interface EntryErrors {
   fond: string | null;
   opys: string | null;
   sprava: string | null;
-  fondName: string | null;
   spravaName: string | null;
   dates: string | null;
   license: string | null;
@@ -80,7 +78,6 @@ export function getEntryErrors(entry: FileEntry): EntryErrors {
     fond:       req(entry.submitted && entry.fond.trim() === ""),
     opys:       req(entry.submitted && entry.opys.trim() === ""),
     sprava:     req(entry.submitted && entry.sprava.trim() === ""),
-    fondName:   req(entry.submitted && isFondNameEnabled(entry) && entry.fondName.value.trim() === ""),
     spravaName: req(entry.submitted && entry.spravaName.trim() === ""),
     dates:      entry.submitted ? getDateError(entry) : null,
     license:    req(entry.submitted && datesHaveValue && entry.license.length === 0),
