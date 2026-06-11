@@ -1,3 +1,4 @@
+import pLimit from "p-limit";
 import { type FileEntry } from "./types";
 import { getEffectiveFileName } from "./hooks/usePublicFileName";
 import { apiFetch } from "@/lib/api-fetch";
@@ -371,6 +372,10 @@ export type WikisourceAllResult = {
   archive?: WikisourcePageResult;
 };
 
+// Serialize wikisource page edits in the browser. Publish is fast, so a global
+// concurrency-1 queue is the simplest sufficient fix.
+const publishLimit = pLimit(1);
+
 export async function callWikisourcePublish(entry: FileEntry): Promise<WikisourceAllResult> {
   if (!entry.archive) throw new Error("No archive selected");
 
@@ -396,17 +401,19 @@ export async function callWikisourcePublish(entry: FileEntry): Promise<Wikisourc
     updateArchive: !entry.fondName.exists,
   };
 
-  const res = await apiFetch("/api/wikisource/publish", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+  return publishLimit(async () => {
+    const res = await apiFetch("/api/wikisource/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? `wikisource/publish failed: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data as WikisourceAllResult;
   });
-
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error ?? `wikisource/publish failed: ${res.status}`);
-  }
-
-  const data = await res.json();
-  return data as WikisourceAllResult;
 }
