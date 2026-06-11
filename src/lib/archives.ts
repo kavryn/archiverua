@@ -9,6 +9,7 @@ export const ARCHIVES: Archive[] = [
   { name: "Центральний державний історичний архів України, м. Львів", abbr: "ЦДІАЛ", category: "Funds of Central State Historical Archives of Ukraine in Lviv" },
   { name: "Центральний державний архів вищих органів влади та управління України", abbr: "ЦДАВО", category: "Funds of Central State Archives of Supreme Bodies of Power and Government of Ukraine" },
   { name: "Центральний державний архів громадських об'єднань та україніки", abbr: "ЦДАГОУ", category: "Funds of Central State Archives of Public Organizations and Ukrainica" },
+  { name: "Державний архів в Автономній Республіці Крим", abbr: "ДААРК", category: "Funds of State Archives in the Autonomous Republic of Crimea" },
   { name: "Державний архів Вінницької області", abbr: "ДАВіО", category: "Funds of State Archive of Vinnytsia Oblast" },
   { name: "Державний архів Волинської області", abbr: "ДАВоО", category: "Funds of State Archive of Volyn Oblast" },
   { name: "Державний архів Дніпропетровської області", abbr: "ДАДнО", category: "Funds of State Archive of Dnipropetrovsk Oblast" },
@@ -26,6 +27,7 @@ export const ARCHIVES: Archive[] = [
   { name: "Державний архів Одеської області", abbr: "ДАОО", category: "Funds of State Archive of Odesa Oblast" },
   { name: "Державний архів Полтавської області", abbr: "ДАПО", category: "Funds of State Archive of Poltava Oblast" },
   { name: "Державний архів Рівненської області", abbr: "ДАРО", category: "Funds of State Archive of Rivne Oblast" },
+  { name: "Державний архів міста Севастополя", abbr: "ДАС", category: "Funds of State Archives of Sevastopol" },
   { name: "Державний архів Сумської області", abbr: "ДАСО", category: "Funds of State Archive of Sumy Oblast" },
   { name: "Державний архів Тернопільської області", abbr: "ДАТО", category: "Funds of State Archive of Ternopil Oblast" },
   { name: "Державний архів Харківської області", abbr: "ДАХО", category: "Funds of State Archive of Kharkiv Oblast" },
@@ -34,11 +36,9 @@ export const ARCHIVES: Archive[] = [
   { name: "Державний архів Черкаської області", abbr: "ДАЧкО", category: "Funds of State Archive of Cherkasy Oblast" },
   { name: "Державний архів Чернівецької області", abbr: "ДАЧвО", category: "Funds of State Archive of Chernivtsi Oblast" },
   { name: "Державний архів Чернігівської області", abbr: "ДАЧгО", category: "Funds of State Archive of Chernihiv Oblast" },
-  { name: "Державний архів в Автономній Республіці Крим", abbr: "ДААРК", category: "Funds of State Archives in the Autonomous Republic of Crimea"},
-  { name: "Державний архів міста Севастополя", abbr: "ДАС", category: "Funds of State Archives of Sevastopol"},
-  { name: "Комунальна установа «Ізмаїльський архів»", abbr: "КУІзА", category: "Funds of Izmail Archive"},
-  { name: "Інститут рукопису Національної бібліотеки України ім. В.&nbsp;І.&nbsp;Вернадського", abbr: "ІР НБУВ", category: "Funds of Manuscript Institute of Vernadsky National Library of Ukraine"},
-  { name: "Галузевий державний архів Служби безпеки України", abbr: "ГДА СБУ", category: "Funds of Branch State Archives of the Security Service of Ukraine"}
+  { name: "Інститут рукопису Національної бібліотеки України ім. В. І. Вернадського", abbr: "ІР НБУВ", category: "Funds of Manuscript Institute of Vernadsky National Library of Ukraine" },
+  { name: "Галузевий державний архів Служби безпеки України", abbr: "ГДА СБУ", category: "Funds of Branch State Archives of the Security Service of Ukraine" },
+  { name: "Комунальна установа «Ізмаїльський архів»", abbr: "КУІзА", category: "Funds of Izmail Archive" },
 ];
 
 export function filterArchives(query: string): Archive[] {

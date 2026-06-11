@@ -1,4 +1,4 @@
-    import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   normalizeFond,
   normalizeOpysSprava,
@@ -73,6 +73,39 @@ describe("parseArchivalReferenceFromFileName", () => {
       fond: "Р-203",
       opys: "2",
       sprava: "45",
+    });
+  });
+
+  it("parses archive abbreviations with spaces when file names use underscores", () => {
+    expect(parseArchivalReferenceFromFileName("ІР_НБУВ_123-4-5.pdf")).toMatchObject({
+      archive: { abbr: "ІР НБУВ" },
+      fond: "123",
+      opys: "4",
+      sprava: "5",
+    });
+  });
+
+  it("parses archive abbreviations with spaces when file names use hyphens", () => {
+    expect(parseArchivalReferenceFromFileName("ГДА-СБУ_123-4-5.pdf")).toMatchObject({
+      archive: { abbr: "ГДА СБУ" },
+      fond: "123",
+      opys: "4",
+      sprava: "5",
+    });
+  });
+
+  it("prefers a longer archive abbreviation over a shorter matching prefix", () => {
+    expect(parseArchivalReferenceFromFileName("ДАКО_123-4-5.pdf")).toMatchObject({
+      archive: { abbr: "ДАКО" },
+      fond: "123",
+      opys: "4",
+      sprava: "5",
+    });
+    expect(parseArchivalReferenceFromFileName("ДАК_123-4-5.pdf")).toMatchObject({
+      archive: { abbr: "ДАК" },
+      fond: "123",
+      opys: "4",
+      sprava: "5",
     });
   });
 
