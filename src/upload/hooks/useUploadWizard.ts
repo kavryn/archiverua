@@ -52,6 +52,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
   const [zipConversions, setZipConversions] = useState<ZipConversionState[]>([]);
   const [zipPreviews, setZipPreviews] = useState<Map<string, ZipPreview>>(new Map());
   const [pendingPreviews, setPendingPreviews] = useState<Set<string>>(new Set());
+  const [zipSourced, setZipSourced] = useState<Set<string>>(new Set());
   const zipControllersRef = useRef<Map<string, AbortController>>(new Map());
   // Preview rendering is decoupled from conversion (P2). Each pending or
   // completed preview job has its own controller, keyed by PDF file name,
@@ -180,6 +181,12 @@ export function useUploadWizard(directUploadEnabled: boolean) {
       next.delete(fileToRemove.name);
       return next;
     });
+    setZipSourced((prev) => {
+      if (!prev.has(fileToRemove.name)) return prev;
+      const next = new Set(prev);
+      next.delete(fileToRemove.name);
+      return next;
+    });
   }
 
   function startZipConversion(zip: File) {
@@ -238,6 +245,11 @@ export function useUploadWizard(directUploadEnabled: boolean) {
         const pdfFile = result.file;
         setZipConversions((prev) => prev.filter((c) => c.id !== id));
         setFiles((prev) => [...prev, pdfFile]);
+        setZipSourced((prev) => {
+          const next = new Set(prev);
+          next.add(pdfFile.name);
+          return next;
+        });
 
         // Render the preview strip in the background — do NOT block the
         // file from landing in the list or the user from continuing.
@@ -419,5 +431,6 @@ export function useUploadWizard(directUploadEnabled: boolean) {
     handleSubmit,
     zipPreviews,
     pendingPreviews,
+    zipSourced,
   };
 }
