@@ -51,8 +51,11 @@ export default function ZipPreviewLightbox({
 
   // Revoke all cached full-res URLs on unmount. In-flight promises that
   // resolve after unmount get their URLs revoked inline by ensureFull via
-  // the unmountedRef check.
+  // the unmountedRef check. Reset the flag on every (re)mount so React's
+  // StrictMode dev unmount/remount cycle doesn't leave the second mount
+  // permanently believing it's unmounted.
   useEffect(() => {
+    unmountedRef.current = false;
     const cache = fullUrlsRef.current;
     const inFlight = inFlightRef.current;
     return () => {
