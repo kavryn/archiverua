@@ -15,10 +15,10 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
-function filterFiles(fileList: FileList | File[]): File[] {
+function filterAcceptedFiles(fileList: FileList | File[]): File[] {
   return Array.from(fileList).filter((f) => {
     const name = f.name.toLowerCase();
-    return name.endsWith(".pdf") || name.endsWith(".djvu");
+    return name.endsWith(".pdf") || name.endsWith(".djvu") || name.endsWith(".zip");
   });
 }
 
@@ -32,7 +32,7 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
-      onAdd(filterFiles(e.target.files));
+      onAdd(filterAcceptedFiles(e.target.files));
       e.target.value = "";
     }
   }
@@ -50,7 +50,7 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
-    onAdd(filterFiles(Array.from(e.dataTransfer.files)));
+    onAdd(filterAcceptedFiles(Array.from(e.dataTransfer.files)));
   }
 
   return (
@@ -69,13 +69,13 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.djvu"
+          accept=".pdf,.djvu,.zip"
           multiple
           onChange={handleChange}
           className="hidden"
         />
         <p className="font-medium text-zinc-700">
-          Перетягніть PDF / DJVU файли сюди
+          Перетягніть PDF / DJVU / ZIP файли сюди
         </p>
         <p className="font-medium text-zinc-700">
           або натисніть для вибору
