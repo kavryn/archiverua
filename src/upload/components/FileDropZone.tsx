@@ -6,6 +6,7 @@ import { TrashIcon } from "@heroicons/react/24/outline";
 interface Props {
   files: File[];
   onAdd: (files: File[]) => void;
+  onAddZips: (files: File[]) => void;
   onRemove: (index: number) => void;
 }
 
@@ -15,14 +16,18 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
-function filterFiles(fileList: FileList | File[]): File[] {
-  return Array.from(fileList).filter((f) => {
+function partitionFiles(fileList: FileList | File[]): { ready: File[]; zips: File[] } {
+  const ready: File[] = [];
+  const zips: File[] = [];
+  for (const f of Array.from(fileList)) {
     const name = f.name.toLowerCase();
-    return name.endsWith(".pdf") || name.endsWith(".djvu");
-  });
+    if (name.endsWith(".pdf") || name.endsWith(".djvu")) ready.push(f);
+    else if (name.endsWith(".zip")) zips.push(f);
+  }
+  return { ready, zips };
 }
 
-export default function FileDropZone({ files, onAdd, onRemove }: Props) {
+export default function FileDropZone({ files, onAdd, onAddZips, onRemove }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -30,9 +35,15 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
     inputRef.current?.click();
   }
 
+  function dispatch(list: FileList | File[]) {
+    const { ready, zips } = partitionFiles(list);
+    if (ready.length > 0) onAdd(ready);
+    if (zips.length > 0) onAddZips(zips);
+  }
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files) {
-      onAdd(filterFiles(e.target.files));
+      dispatch(e.target.files);
       e.target.value = "";
     }
   }
@@ -50,7 +61,7 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
-    onAdd(filterFiles(Array.from(e.dataTransfer.files)));
+    dispatch(Array.from(e.dataTransfer.files));
   }
 
   return (
@@ -69,13 +80,13 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.djvu"
+          accept=".pdf,.djvu,.zip"
           multiple
           onChange={handleChange}
           className="hidden"
         />
         <p className="font-medium text-zinc-700">
-          Перетягніть PDF / DJVU файли сюди
+          Перетягніть PDF / DJVU / ZIP файли сюди
         </p>
         <p className="font-medium text-zinc-700">
           або натисніть для вибору

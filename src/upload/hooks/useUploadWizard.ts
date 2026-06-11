@@ -1,18 +1,41 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import pLimit from "p-limit";
 import { makeEntry, type FileEntry } from "../types";
 import { isEntryValid } from "../validation";
 import { uploadFile, callWikisourcePublish } from "../upload";
+import {
+  cleanupStaleTmpFiles,
+  convertZipToPdf,
+  removeOpfsFile,
+  ZipValidationError,
+} from "../zipToPdf";
 import { useNavigationGuard } from "@/context/NavigationGuardContext";
 
 const MAX_CONCURRENT_UPLOADS = 3;
+
+export type ZipConversionState = {
+  id: string;
+  zipName: string;
+  status: "validating" | "converting" | "error";
+  currentEntry: number;
+  totalEntries: number;
+  currentName: string;
+  errorMessage?: string;
+};
 
 export function useUploadWizard(directUploadEnabled: boolean) {
   const { data: session } = useSession();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [files, setFiles] = useState<File[]>([]);
   const [fileStates, setFileStates] = useState<FileEntry[]>([]);
+  const [zipConversions, setZipConversions] = useState<ZipConversionState[]>([]);
+  const zipControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const opfsNamesRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    cleanupStaleTmpFiles();
+  }, []);
 
   function updateEntry(index: number, patch: Partial<FileEntry> | ((e: FileEntry) => Partial<FileEntry>)) {
     setFileStates((prev) => prev.map((e, i) => {
@@ -36,6 +59,89 @@ export function useUploadWizard(directUploadEnabled: boolean) {
     const fileToRemove = files[index];
     setFiles((prev) => prev.filter((_, i) => i !== index));
     setFileStates((prev) => prev.filter((e) => e.file !== fileToRemove));
+    const opfsName = opfsNamesRef.current.get(fileToRemove.name);
+    if (opfsName) {
+      opfsNamesRef.current.delete(fileToRemove.name);
+      removeOpfsFile(opfsName);
+    }
+  }
+
+  async function handleAddZips(zips: File[]) {
+    for (const zip of zips) {
+      const id = `${zip.name}-${zip.size}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const controller = new AbortController();
+      zipControllersRef.current.set(id, controller);
+
+      setZipConversions((prev) => [
+        ...prev,
+        {
+          id,
+          zipName: zip.name,
+          status: "validating",
+          currentEntry: 0,
+          totalEntries: 0,
+          currentName: "",
+        },
+      ]);
+
+      convertZipToPdf(
+        zip,
+        (p) =>
+          setZipConversions((prev) =>
+            prev.map((c) =>
+              c.id === id
+                ? {
+                    ...c,
+                    status: p.phase,
+                    currentEntry: p.currentEntry,
+                    totalEntries: p.totalEntries,
+                    currentName: p.currentName,
+                  }
+                : c,
+            ),
+          ),
+        controller.signal,
+      ).then(
+        (result) => {
+          zipControllersRef.current.delete(id);
+          opfsNamesRef.current.set(result.file.name, result.opfsName);
+          setZipConversions((prev) => prev.filter((c) => c.id !== id));
+          setFiles((prev) => {
+            if (prev.some((f) => f.name === result.file.name && f.size === result.file.size)) {
+              return prev;
+            }
+            return [...prev, result.file];
+          });
+        },
+        (err) => {
+          zipControllersRef.current.delete(id);
+          if (err?.name === "AbortError") {
+            setZipConversions((prev) => prev.filter((c) => c.id !== id));
+            return;
+          }
+          const message =
+            err instanceof ZipValidationError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : "Не вдалося обробити ZIP";
+          setZipConversions((prev) =>
+            prev.map((c) =>
+              c.id === id ? { ...c, status: "error", errorMessage: message } : c,
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  function handleCancelZip(id: string) {
+    const controller = zipControllersRef.current.get(id);
+    controller?.abort();
+  }
+
+  function handleDismissZip(id: string) {
+    setZipConversions((prev) => prev.filter((c) => c.id !== id));
   }
 
   function handleContinue() {
@@ -63,6 +169,11 @@ export function useUploadWizard(directUploadEnabled: boolean) {
 
       if (result.status === "success") {
         updateEntry(index, { status: "success", resultUrl: result.url });
+        const opfsName = opfsNamesRef.current.get(entry.file.name);
+        if (opfsName) {
+          opfsNamesRef.current.delete(entry.file.name);
+          removeOpfsFile(opfsName);
+        }
         try {
           updateEntry(index, { wikisourceStatus: "pending" });
           const wikisourceResult = await callWikisourcePublish(entry);
@@ -100,21 +211,30 @@ export function useUploadWizard(directUploadEnabled: boolean) {
   }
 
   const isAnyUploading = fileStates.some((e) => e.status === "uploading" || e.wikisourceStatus === "pending");
+  const isAnyConverting = zipConversions.some(
+    (c) => c.status === "validating" || c.status === "converting",
+  );
 
   const { setShouldGuard } = useNavigationGuard();
 
   useEffect(() => {
-    const guard = step === 2 || (step === 3 && isAnyUploading);
+    const guard =
+      (step === 1 && isAnyConverting) || step === 2 || (step === 3 && isAnyUploading);
     setShouldGuard(guard);
     return () => setShouldGuard(false);
-  }, [step, isAnyUploading, setShouldGuard]);
+  }, [step, isAnyUploading, isAnyConverting, setShouldGuard]);
 
   return {
     step,
     files,
     fileStates,
+    zipConversions,
+    isAnyConverting,
     updateEntry,
     handleAddFiles,
+    handleAddZips,
+    handleCancelZip,
+    handleDismissZip,
     handleRemoveFile,
     handleContinue,
     handleBack,
