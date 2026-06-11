@@ -14,7 +14,7 @@ export default function ZipPreviewStrip({ thumbs, totalPages, onOpen }: Props) {
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="text-xs text-zinc-500">
+      <p className="text-sm text-zinc-500">
         {truncated
           ? `${totalPages} сторінок · перші ${thumbs.length} у попередньому перегляді`
           : `${totalPages} ${pluralPages(totalPages)}`}

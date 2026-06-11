@@ -37,7 +37,7 @@ export type ZipPreview = {
 export type ZipConversionState = {
   id: string;
   zipName: string;
-  status: "validating" | "converting" | "error";
+  status: "queued" | "validating" | "converting" | "error";
   currentEntry: number;
   totalEntries: number;
   currentName: string;
@@ -51,6 +51,8 @@ export function useUploadWizard(directUploadEnabled: boolean) {
   const [fileStates, setFileStates] = useState<FileEntry[]>([]);
   const [zipConversions, setZipConversions] = useState<ZipConversionState[]>([]);
   const [zipPreviews, setZipPreviews] = useState<Map<string, ZipPreview>>(new Map());
+  const [pendingPreviews, setPendingPreviews] = useState<Set<string>>(new Set());
+  const [zipSourced, setZipSourced] = useState<Set<string>>(new Set());
   const zipControllersRef = useRef<Map<string, AbortController>>(new Map());
   // Preview rendering is decoupled from conversion (P2). Each pending or
   // completed preview job has its own controller, keyed by PDF file name,
@@ -173,6 +175,18 @@ export function useUploadWizard(directUploadEnabled: boolean) {
       next.delete(fileToRemove.name);
       return next;
     });
+    setPendingPreviews((prev) => {
+      if (!prev.has(fileToRemove.name)) return prev;
+      const next = new Set(prev);
+      next.delete(fileToRemove.name);
+      return next;
+    });
+    setZipSourced((prev) => {
+      if (!prev.has(fileToRemove.name)) return prev;
+      const next = new Set(prev);
+      next.delete(fileToRemove.name);
+      return next;
+    });
   }
 
   function startZipConversion(zip: File) {
@@ -185,7 +199,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
       {
         id,
         zipName: zip.name,
-        status: "validating",
+        status: "queued",
         currentEntry: 0,
         totalEntries: 0,
         currentName: "",
@@ -231,11 +245,21 @@ export function useUploadWizard(directUploadEnabled: boolean) {
         const pdfFile = result.file;
         setZipConversions((prev) => prev.filter((c) => c.id !== id));
         setFiles((prev) => [...prev, pdfFile]);
+        setZipSourced((prev) => {
+          const next = new Set(prev);
+          next.add(pdfFile.name);
+          return next;
+        });
 
         // Render the preview strip in the background — do NOT block the
         // file from landing in the list or the user from continuing.
         const previewCtrl = new AbortController();
         previewControllersRef.current.set(pdfFile.name, previewCtrl);
+        setPendingPreviews((prev) => {
+          const next = new Set(prev);
+          next.add(pdfFile.name);
+          return next;
+        });
 
         // Only touch the map entry if it still points at *this* controller.
         // A removed-then-re-added file with the same PDF name installs a
@@ -245,6 +269,14 @@ export function useUploadWizard(directUploadEnabled: boolean) {
           if (previewControllersRef.current.get(pdfFile.name) === previewCtrl) {
             previewControllersRef.current.delete(pdfFile.name);
           }
+        };
+        const clearPending = () => {
+          setPendingPreviews((prev) => {
+            if (!prev.has(pdfFile.name)) return prev;
+            const next = new Set(prev);
+            next.delete(pdfFile.name);
+            return next;
+          });
         };
 
         renderPdfThumbnails(pdfFile, PREVIEW_LIMIT, previewCtrl.signal).then(
@@ -256,6 +288,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
               return;
             }
             clearOwnController();
+            clearPending();
             setZipPreviews((prev) => {
               const next = new Map(prev);
               next.set(pdfFile.name, {
@@ -269,6 +302,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
           () => {
             // Best-effort: UI just stays without a preview strip.
             clearOwnController();
+            clearPending();
           },
         );
       },
@@ -370,7 +404,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
 
   const isAnyUploading = fileStates.some((e) => e.status === "uploading" || e.wikisourceStatus === "pending");
   const isAnyConverting = zipConversions.some(
-    (c) => c.status === "validating" || c.status === "converting",
+    (c) => c.status === "queued" || c.status === "validating" || c.status === "converting",
   );
 
   const { setShouldGuard } = useNavigationGuard();
@@ -396,5 +430,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
     handleBack,
     handleSubmit,
     zipPreviews,
+    pendingPreviews,
+    zipSourced,
   };
 }

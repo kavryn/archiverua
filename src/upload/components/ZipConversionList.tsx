@@ -16,8 +16,18 @@ export default function ZipConversionList({ conversions, onRemove }: Props) {
       {conversions.map((c) => {
         const percent =
           c.totalEntries > 0 ? Math.round((c.currentEntry / c.totalEntries) * 100) : 0;
-        const isActive = c.status === "validating" || c.status === "converting";
+        const isActive =
+          c.status === "queued" || c.status === "validating" || c.status === "converting";
         const isError = c.status === "error";
+
+        let statusLabel: string;
+        if (c.status === "queued") {
+          statusLabel = "В черзі…";
+        } else if (c.status === "validating") {
+          statusLabel = "Перевірка архіву…";
+        } else {
+          statusLabel = `Конвертація ${c.currentEntry} / ${c.totalEntries}: ${c.currentName}`;
+        }
 
         return (
           <li
@@ -25,7 +35,7 @@ export default function ZipConversionList({ conversions, onRemove }: Props) {
             className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2"
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="mr-2 truncate text-base text-zinc-700">{c.zipName}</span>
+              <span className="mr-2 truncate text-base font-bold text-zinc-700">{c.zipName}</span>
               <button
                 type="button"
                 onClick={() => onRemove(c.id)}
@@ -44,11 +54,7 @@ export default function ZipConversionList({ conversions, onRemove }: Props) {
                     style={{ width: `${percent}%` }}
                   />
                 </div>
-                <p className="text-sm text-zinc-500">
-                  {c.status === "validating"
-                    ? "Перевірка архіву…"
-                    : `Конвертація ${c.currentEntry} / ${c.totalEntries}: ${c.currentName}`}
-                </p>
+                <p className="text-sm text-zinc-500">{statusLabel}</p>
               </>
             )}
 

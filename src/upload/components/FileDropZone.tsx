@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { TrashIcon } from "@heroicons/react/24/outline";
+import { TrashIcon, ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import ZipPreviewStrip from "./ZipPreviewStrip";
 import ZipPreviewLightbox from "./ZipPreviewLightbox";
 import type { ZipPreview } from "../hooks/useUploadWizard";
@@ -11,6 +11,8 @@ interface Props {
   onAdd: (files: File[]) => void;
   onRemove: (index: number) => void;
   previews?: Map<string, ZipPreview>;
+  pendingPreviews?: Set<string>;
+  zipSourced?: Set<string>;
 }
 
 function formatSize(bytes: number): string {
@@ -26,7 +28,7 @@ function filterAcceptedFiles(fileList: FileList | File[]): File[] {
   });
 }
 
-export default function FileDropZone({ files, onAdd, onRemove, previews }: Props) {
+export default function FileDropZone({ files, onAdd, onRemove, previews, pendingPreviews, zipSourced }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [lightbox, setLightbox] = useState<{ fileName: string; index: number } | null>(null);
@@ -66,10 +68,10 @@ export default function FileDropZone({ files, onAdd, onRemove, previews }: Props
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+        className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
           isDragging
             ? "border-blue-500 bg-blue-50"
-            : "border-zinc-300 hover:border-zinc-800"
+            : "border-blue-400 hover:border-blue-600 hover:bg-blue-50"
         }`}
       >
         <input
@@ -80,11 +82,12 @@ export default function FileDropZone({ files, onAdd, onRemove, previews }: Props
           onChange={handleChange}
           className="hidden"
         />
+        <ArrowUpTrayIcon className="size-8 text-blue-500" />
         <p className="font-medium text-zinc-700">
-          Перетягніть PDF / DJVU / ZIP файли сюди
+          Перетягніть PDF, DJVU чи ZIP із зображеннями
         </p>
         <p className="font-medium text-zinc-700">
-          або натисніть для вибору
+          або <span className="text-blue-600 underline">натисніть для вибору</span>
         </p>
       </div>
 
@@ -92,14 +95,21 @@ export default function FileDropZone({ files, onAdd, onRemove, previews }: Props
         <ul className="flex flex-col gap-1">
           {files.map((file, index) => {
             const preview = previews?.get(file.name);
+            const isPreviewPending = pendingPreviews?.has(file.name) ?? false;
+            const isZipSourced = zipSourced?.has(file.name) ?? false;
             return (
               <li
                 key={index}
-                className="flex flex-col gap-2 rounded-md bg-zinc-50 px-3 py-2"
+                className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="mr-4 truncate text-base text-zinc-700">
-                    {file.name}
+                  <span className="mr-4 flex min-w-0 items-center gap-2 text-base text-zinc-700">
+                    <span className="truncate font-bold">{file.name}</span>
+                    {isZipSourced && (
+                      <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-medium text-zinc-600">
+                        ZIP
+                      </span>
+                    )}
                   </span>
                   <div className="flex shrink-0 items-center gap-2">
                     <span className="text-sm text-zinc-500">
@@ -121,6 +131,9 @@ export default function FileDropZone({ files, onAdd, onRemove, previews }: Props
                     totalPages={preview.totalPages}
                     onOpen={(i) => setLightbox({ fileName: file.name, index: i })}
                   />
+                )}
+                {!preview && isPreviewPending && (
+                  <p className="text-sm text-zinc-500">Генерація прев&apos;ю…</p>
                 )}
               </li>
             );
