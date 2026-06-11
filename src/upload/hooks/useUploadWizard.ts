@@ -171,6 +171,14 @@ export function useUploadWizard(directUploadEnabled: boolean) {
     }).then(
       (result) => {
         zipControllersRef.current.delete(id);
+        // convertZipToPdf only checks the abort signal at the start of each
+        // image iteration, so a trash click between the last check and this
+        // resolver still produces a finished PDF. Honor the cancellation
+        // by discarding the artifact instead of resurrecting it in the list.
+        if (controller.signal.aborted) {
+          removeOpfsFile(result.opfsName);
+          return;
+        }
         opfsNamesRef.current.set(result.file.name, result.opfsName);
         setZipConversions((prev) => prev.filter((c) => c.id !== id));
         setFiles((prev) => [...prev, result.file]);
