@@ -10,7 +10,7 @@ import {
   type RowFieldAliases,
 } from "./wikitable";
 import { logWarning } from "./logger";
-import { wikisource } from "./wikimedia";
+import { updateWikisourcePage } from "./wikimedia";
 
 export type { ParsedWikiTable };
 
@@ -129,14 +129,11 @@ export async function updateOpysPage(
   params: UpdateOpysPageParams
 ): Promise<{ url: string; created: boolean }> {
   const title = `Архів:${params.archiveAbbr}/${params.fond}/${params.opys}`;
-  const existingContent = await wikisource.getPageContent(params.accessToken, title);
-  const content = buildOrUpdateOpysContent(existingContent, params);
-  const url = await wikisource.editPage({
+  return updateWikisourcePage({
     accessToken: params.accessToken,
     csrfToken: params.csrfToken,
     title,
-    content,
     summary: `Додано справу ${params.sprava}`,
+    build: (existingContent) => buildOrUpdateOpysContent(existingContent, params),
   });
-  return { url, created: existingContent === null };
 }

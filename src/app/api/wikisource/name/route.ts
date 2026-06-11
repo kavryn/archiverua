@@ -18,10 +18,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const content = await wikisource.getPageContent(session.accessToken, title);
-    if (content === null) return NextResponse.json({ name: null, exists: false });
+    const revision = await wikisource.getPageContent(session.accessToken, title);
+    if (revision === null || revision.content === null) {
+      return NextResponse.json({ name: null, exists: false });
+    }
 
-    const match = content.match(/\|\s*назва\s*=\s*([^\n|{}]+)/);
+    const match = revision.content.match(/\|\s*назва\s*=\s*([^\n|{}]+)/);
 
     return NextResponse.json({ name: match ? match[1].trim() : null, exists: true });
   } catch (err) {
