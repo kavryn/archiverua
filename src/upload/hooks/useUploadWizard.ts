@@ -11,6 +11,14 @@ import {
   removeOpfsFile,
   ZipValidationError,
 } from "../zipToPdf";
+import {
+  renderPdfPageBlob,
+  renderPdfThumbnails,
+  revokeThumbUrls,
+  type PdfThumb,
+} from "../pdfPreview";
+
+const PREVIEW_LIMIT = 10;
 import { useNavigationGuard } from "@/context/NavigationGuardContext";
 
 const MAX_CONCURRENT_UPLOADS = 3;
@@ -19,6 +27,12 @@ const MAX_CONCURRENT_UPLOADS = 3;
 // embedding all run on the main thread (web workers off for OPFS visibility).
 // Run conversions serially so dropping many archives doesn't freeze the UI.
 const zipConversionLimit = pLimit(1);
+
+export type ZipPreview = {
+  thumbs: PdfThumb[];
+  totalPages: number;
+  loadFull: (index: number) => Promise<Blob>;
+};
 
 export type ZipConversionState = {
   id: string;
@@ -36,13 +50,34 @@ export function useUploadWizard(directUploadEnabled: boolean) {
   const [files, setFiles] = useState<File[]>([]);
   const [fileStates, setFileStates] = useState<FileEntry[]>([]);
   const [zipConversions, setZipConversions] = useState<ZipConversionState[]>([]);
+  const [zipPreviews, setZipPreviews] = useState<Map<string, ZipPreview>>(new Map());
   const zipControllersRef = useRef<Map<string, AbortController>>(new Map());
+  // Preview rendering is decoupled from conversion (P2). Each pending or
+  // completed preview job has its own controller, keyed by PDF file name,
+  // so removing a file or unmounting can cancel an in-flight pdf.js pass.
+  const previewControllersRef = useRef<Map<string, AbortController>>(new Map());
   // We forbid two files with the same name in `files` (see handleAddFiles /
   // handleAddZips), so name → opfsName is a safe lookup.
   const opfsNamesRef = useRef<Map<string, string>>(new Map());
+  const zipPreviewsRef = useRef<Map<string, ZipPreview>>(zipPreviews);
+
+  useEffect(() => {
+    zipPreviewsRef.current = zipPreviews;
+  }, [zipPreviews]);
 
   useEffect(() => {
     cleanupStaleTmpFiles();
+  }, []);
+
+  // Cancel in-flight preview jobs and revoke any leftover blob URLs when
+  // the wizard unmounts.
+  useEffect(() => {
+    const previewControllers = previewControllersRef.current;
+    return () => {
+      for (const c of previewControllers.values()) c.abort();
+      previewControllers.clear();
+      for (const p of zipPreviewsRef.current.values()) revokeThumbUrls(p.thumbs);
+    };
   }, []);
 
   function updateEntry(index: number, patch: Partial<FileEntry> | ((e: FileEntry) => Partial<FileEntry>)) {
@@ -125,6 +160,19 @@ export function useUploadWizard(directUploadEnabled: boolean) {
       opfsNamesRef.current.delete(fileToRemove.name);
       removeOpfsFile(opfsName);
     }
+    const previewCtrl = previewControllersRef.current.get(fileToRemove.name);
+    if (previewCtrl) {
+      previewCtrl.abort();
+      previewControllersRef.current.delete(fileToRemove.name);
+    }
+    setZipPreviews((prev) => {
+      const existing = prev.get(fileToRemove.name);
+      if (!existing) return prev;
+      revokeThumbUrls(existing.thumbs);
+      const next = new Map(prev);
+      next.delete(fileToRemove.name);
+      return next;
+    });
   }
 
   function startZipConversion(zip: File) {
@@ -180,8 +228,49 @@ export function useUploadWizard(directUploadEnabled: boolean) {
           return;
         }
         opfsNamesRef.current.set(result.file.name, result.opfsName);
+        const pdfFile = result.file;
         setZipConversions((prev) => prev.filter((c) => c.id !== id));
-        setFiles((prev) => [...prev, result.file]);
+        setFiles((prev) => [...prev, pdfFile]);
+
+        // Render the preview strip in the background — do NOT block the
+        // file from landing in the list or the user from continuing.
+        const previewCtrl = new AbortController();
+        previewControllersRef.current.set(pdfFile.name, previewCtrl);
+
+        // Only touch the map entry if it still points at *this* controller.
+        // A removed-then-re-added file with the same PDF name installs a
+        // new controller under the same key; the stale job's resolver must
+        // not stomp over it.
+        const clearOwnController = () => {
+          if (previewControllersRef.current.get(pdfFile.name) === previewCtrl) {
+            previewControllersRef.current.delete(pdfFile.name);
+          }
+        };
+
+        renderPdfThumbnails(pdfFile, PREVIEW_LIMIT, previewCtrl.signal).then(
+          ({ thumbs, totalPages }) => {
+            // Aborted (user removed the file) — discard thumbnails. Do NOT
+            // delete the map entry: it may already belong to a fresh job.
+            if (previewCtrl.signal.aborted) {
+              revokeThumbUrls(thumbs);
+              return;
+            }
+            clearOwnController();
+            setZipPreviews((prev) => {
+              const next = new Map(prev);
+              next.set(pdfFile.name, {
+                thumbs,
+                totalPages,
+                loadFull: (i) => renderPdfPageBlob(pdfFile, i),
+              });
+              return next;
+            });
+          },
+          () => {
+            // Best-effort: UI just stays without a preview strip.
+            clearOwnController();
+          },
+        );
       },
       (err) => {
         zipControllersRef.current.delete(id);
@@ -306,5 +395,6 @@ export function useUploadWizard(directUploadEnabled: boolean) {
     handleContinue,
     handleBack,
     handleSubmit,
+    zipPreviews,
   };
 }

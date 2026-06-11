@@ -2,11 +2,15 @@
 
 import { useRef, useState } from "react";
 import { TrashIcon } from "@heroicons/react/24/outline";
+import ZipPreviewStrip from "./ZipPreviewStrip";
+import ZipPreviewLightbox from "./ZipPreviewLightbox";
+import type { ZipPreview } from "../hooks/useUploadWizard";
 
 interface Props {
   files: File[];
   onAdd: (files: File[]) => void;
   onRemove: (index: number) => void;
+  previews?: Map<string, ZipPreview>;
 }
 
 function formatSize(bytes: number): string {
@@ -22,9 +26,11 @@ function filterAcceptedFiles(fileList: FileList | File[]): File[] {
   });
 }
 
-export default function FileDropZone({ files, onAdd, onRemove }: Props) {
+export default function FileDropZone({ files, onAdd, onRemove, previews }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [lightbox, setLightbox] = useState<{ fileName: string; index: number } | null>(null);
+  const activePreview = lightbox ? previews?.get(lightbox.fileName) : undefined;
 
   function handleClick() {
     inputRef.current?.click();
@@ -84,29 +90,51 @@ export default function FileDropZone({ files, onAdd, onRemove }: Props) {
 
       {files.length > 0 && (
         <ul className="flex flex-col gap-1">
-          {files.map((file, index) => (
-            <li
-              key={index}
-              className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-2">
-              <span className="mr-4 truncate text-base text-zinc-700">
-                {file.name}
-              </span>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="text-sm text-zinc-500">
-                  {formatSize(file.size)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onRemove(index)}
-                  className="text-zinc-400 transition-colors hover:text-red-500"
-                  aria-label={`Видалити ${file.name}`}
-                >
-                  <TrashIcon className="size-4" />
-                </button>
-              </div>
-            </li>
-          ))}
+          {files.map((file, index) => {
+            const preview = previews?.get(file.name);
+            return (
+              <li
+                key={index}
+                className="flex flex-col gap-2 rounded-md bg-zinc-50 px-3 py-2"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="mr-4 truncate text-base text-zinc-700">
+                    {file.name}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-sm text-zinc-500">
+                      {formatSize(file.size)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(index)}
+                      className="text-zinc-400 transition-colors hover:text-red-500"
+                      aria-label={`Видалити ${file.name}`}
+                    >
+                      <TrashIcon className="size-4" />
+                    </button>
+                  </div>
+                </div>
+                {preview && (
+                  <ZipPreviewStrip
+                    thumbs={preview.thumbs}
+                    totalPages={preview.totalPages}
+                    onOpen={(i) => setLightbox({ fileName: file.name, index: i })}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
+      )}
+      {lightbox && activePreview && (
+        <ZipPreviewLightbox
+          thumbs={activePreview.thumbs}
+          totalPages={activePreview.totalPages}
+          startIndex={lightbox.index}
+          loadFull={activePreview.loadFull}
+          onClose={() => setLightbox(null)}
+        />
       )}
     </div>
   );

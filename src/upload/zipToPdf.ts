@@ -10,6 +10,8 @@ configure({ useWebWorkers: false });
 
 const TMP_PREFIX = "ziptmp-";
 
+export const PREVIEW_LIMIT = 10;
+
 export type ZipConversionProgress = {
   phase: "validating" | "converting";
   currentEntry: number;
@@ -180,6 +182,7 @@ export async function validateZip(
 export type ZipConversionResult = {
   file: File;
   opfsName: string;
+  totalPages: number;
 };
 
 export function pdfNameForZip(zipName: string): string {
@@ -279,9 +282,14 @@ export async function convertZipToPdf(
 
     const file = await handle.getFile();
     const pdfName = pdfNameForZip(zipFile.name);
+    const pdfFile = new File([file], pdfName, { type: "application/pdf" });
+
+    // Preview rendering is deferred to the caller so a slow pdf.js pass on
+    // a large PDF doesn't gate the "Continue" button. See useUploadWizard.
     return {
-      file: new File([file], pdfName, { type: "application/pdf" }),
+      file: pdfFile,
       opfsName,
+      totalPages: total,
     };
   } catch (err) {
     await reader.close().catch(() => undefined);
