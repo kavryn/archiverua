@@ -1,5 +1,5 @@
 import { getTemplateParam, setTemplateParam } from "./wikitemplate";
-import { wikisource } from "./wikimedia";
+import { updateWikisourcePage } from "./wikimedia";
 
 export interface SpravaPageParams {
   archiveAbbr: string;
@@ -65,14 +65,11 @@ export async function updateSpravaPage(
   params: UpdateSpravaPageParams
 ): Promise<{ url: string; created: boolean }> {
   const title = `Архів:${params.archiveAbbr}/${params.fond}/${params.opys}/${params.sprava}`;
-  const existingContent = await wikisource.getPageContent(params.accessToken, title);
-  const content = buildOrUpdateSpravaContent(existingContent, params);
-  const url = await wikisource.editPage({
+  return updateWikisourcePage({
     accessToken: params.accessToken,
     csrfToken: params.csrfToken,
     title,
-    content,
     summary: "Додано посилання на Commons",
+    build: (existingContent) => buildOrUpdateSpravaContent(existingContent, params),
   });
-  return { url, created: existingContent === null };
 }

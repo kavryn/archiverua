@@ -11,7 +11,7 @@ import {
   type RowFieldAliases,
 } from "./wikitable";
 import { logWarning } from "./logger";
-import { wikisource } from "./wikimedia";
+import { updateWikisourcePage } from "./wikimedia";
 
 export interface FondPageParams {
   archiveAbbr: string;
@@ -121,14 +121,11 @@ export async function updateFondPage(
   params: UpdateFondPageParams
 ): Promise<{ url: string; created: boolean }> {
   const title = `Архів:${params.archiveAbbr}/${params.fond}`;
-  const existingContent = await wikisource.getPageContent(params.accessToken, title);
-  const content = buildOrUpdateFondContent(existingContent, params);
-  const url = await wikisource.editPage({
+  return updateWikisourcePage({
     accessToken: params.accessToken,
     csrfToken: params.csrfToken,
     title,
-    content,
     summary: `Додано опис ${params.opys}`,
+    build: (existingContent) => buildOrUpdateFondContent(existingContent, params),
   });
-  return { url, created: existingContent === null };
 }

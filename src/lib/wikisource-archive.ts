@@ -10,7 +10,7 @@ import {
   type RowFieldAliases,
 } from "./wikitable";
 import { logWarning } from "./logger";
-import { wikisource } from "./wikimedia";
+import { updateWikisourcePage } from "./wikimedia";
 
 export interface ArchivePageParams {
   archiveAbbr: string;
@@ -151,14 +151,11 @@ export async function updateArchivePage(
   params: UpdateArchivePageParams
 ): Promise<{ url: string; created: boolean }> {
   const title = getArchivePageTitle(params.archiveAbbr, params.fond);
-  const existingContent = await wikisource.getPageContent(params.accessToken, title);
-  const content = buildOrUpdateArchiveContent(existingContent, params);
-  const url = await wikisource.editPage({
+  return updateWikisourcePage({
     accessToken: params.accessToken,
     csrfToken: params.csrfToken,
     title,
-    content,
     summary: `Додано фонд ${params.fond}`,
+    build: (existingContent) => buildOrUpdateArchiveContent(existingContent, params),
   });
-  return { url, created: existingContent === null };
 }

@@ -88,6 +88,25 @@ export interface EditWikisourcePageParams {
   title: string;
   content: string;
   summary: string;
+  // Optimistic concurrency: timestamp of the revision the edit is based on
+  // (from getPageContent). Omit when creating a brand-new page.
+  basetimestamp?: string;
+  // Timestamp at which the read happened (curtimestamp). Used by the server
+  // to detect creation conflicts and as a fallback edit-conflict signal.
+  starttimestamp?: string;
+}
+
+export interface WikisourcePageRevision {
+  content: string;
+  basetimestamp: string;
+  starttimestamp: string;
+}
+
+export class EditConflictError extends Error {
+  constructor(message = "editconflict") {
+    super(message);
+    this.name = "EditConflictError";
+  }
 }
 
 export interface BlacklistResult {
@@ -509,13 +528,17 @@ class WikisourceClient extends WikiClient {
     super(WIKISOURCE_API_URL, WIKISOURCE_BASE);
   }
 
-  async getPageContent(accessToken: string, title: string): Promise<string | null> {
+  async getPageContent(
+    accessToken: string,
+    title: string
+  ): Promise<WikisourcePageRevision | null> {
     const params = new URLSearchParams({
       action: "query",
       prop: "revisions",
-      rvprop: "content",
+      rvprop: "content|timestamp",
       rvslots: "main",
       titles: title,
+      curtimestamp: "1",
       format: "json",
     });
 
@@ -528,6 +551,7 @@ class WikisourceClient extends WikiClient {
     }
 
     const data = await res.json();
+    const starttimestamp = (data?.curtimestamp as string) ?? new Date().toISOString();
     const pages = data?.query?.pages;
     if (!pages) return null;
 
@@ -536,8 +560,12 @@ class WikisourceClient extends WikiClient {
 
     const revisions = page?.revisions as Array<Record<string, unknown>> | undefined;
     const firstRev = revisions?.[0];
+    if (!firstRev) return null;
     const slots = firstRev?.slots as Record<string, Record<string, string>> | undefined;
-    return slots?.main?.["*"] ?? (firstRev?.["*"] as string) ?? null;
+    const content = slots?.main?.["*"] ?? (firstRev?.["*"] as string) ?? null;
+    if (content === null) return null;
+    const basetimestamp = firstRev.timestamp as string;
+    return { content, basetimestamp, starttimestamp };
   }
 
   async editPage(params: EditWikisourcePageParams): Promise<string> {
@@ -548,6 +576,12 @@ class WikisourceClient extends WikiClient {
     fd.append("text", params.content);
     fd.append("summary", params.summary);
     fd.append("token", params.csrfToken);
+    if (params.basetimestamp) {
+      fd.append("basetimestamp", params.basetimestamp);
+    }
+    if (params.starttimestamp) {
+      fd.append("starttimestamp", params.starttimestamp);
+    }
 
     const res = await wikiFetch(this.apiUrl, {
       method: "POST",
@@ -561,12 +595,57 @@ class WikisourceClient extends WikiClient {
 
     const data = await res.json();
     if (data.error) {
+      if (data.error.code === "editconflict") {
+        throw new EditConflictError(data.error.info ?? "editconflict");
+      }
       console.error("[editPage] API error", data.error);
       throw new Error(data.error.info ?? "Wikisource edit error");
     }
 
     return `${this.baseUrl}/wiki/${encodeURIComponent(params.title)}`;
   }
+}
+
+export const WIKISOURCE_EDIT_MAX_ATTEMPTS = 4;
+
+export interface UpdateWikisourcePageArgs {
+  accessToken: string;
+  csrfToken: string;
+  title: string;
+  summary: string;
+  build: (existingContent: string | null) => string;
+}
+
+// Read-modify-write with optimistic-concurrency retry. On EditConflictError we
+// re-read the page, rebuild content from the fresh revision, and try again,
+// up to WIKISOURCE_EDIT_MAX_ATTEMPTS times before surfacing the conflict.
+export async function updateWikisourcePage(
+  args: UpdateWikisourcePageArgs
+): Promise<{ url: string; created: boolean }> {
+  let lastConflict: EditConflictError | null = null;
+  for (let attempt = 1; attempt <= WIKISOURCE_EDIT_MAX_ATTEMPTS; attempt++) {
+    const existing = await wikisource.getPageContent(args.accessToken, args.title);
+    const content = args.build(existing?.content ?? null);
+    try {
+      const url = await wikisource.editPage({
+        accessToken: args.accessToken,
+        csrfToken: args.csrfToken,
+        title: args.title,
+        content,
+        summary: args.summary,
+        basetimestamp: existing?.basetimestamp,
+        starttimestamp: existing?.starttimestamp,
+      });
+      return { url, created: existing === null };
+    } catch (err) {
+      if (!(err instanceof EditConflictError)) throw err;
+      lastConflict = err;
+      console.warn(
+        `[updateWikisourcePage] editconflict on "${args.title}" (attempt ${attempt}/${WIKISOURCE_EDIT_MAX_ATTEMPTS})`
+      );
+    }
+  }
+  throw lastConflict ?? new EditConflictError();
 }
 
 export const wikicommons = new WikicommonsClient();
