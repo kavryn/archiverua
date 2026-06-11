@@ -16,8 +16,18 @@ export default function ZipConversionList({ conversions, onRemove }: Props) {
       {conversions.map((c) => {
         const percent =
           c.totalEntries > 0 ? Math.round((c.currentEntry / c.totalEntries) * 100) : 0;
-        const isActive = c.status === "validating" || c.status === "converting";
+        const isActive =
+          c.status === "queued" || c.status === "validating" || c.status === "converting";
         const isError = c.status === "error";
+
+        let statusLabel: string;
+        if (c.status === "queued") {
+          statusLabel = "В черзі…";
+        } else if (c.status === "validating") {
+          statusLabel = "Перевірка архіву…";
+        } else {
+          statusLabel = `Конвертація ${c.currentEntry} / ${c.totalEntries}: ${c.currentName}`;
+        }
 
         return (
           <li
@@ -44,11 +54,7 @@ export default function ZipConversionList({ conversions, onRemove }: Props) {
                     style={{ width: `${percent}%` }}
                   />
                 </div>
-                <p className="text-sm text-zinc-500">
-                  {c.status === "validating"
-                    ? "Перевірка архіву…"
-                    : `Конвертація ${c.currentEntry} / ${c.totalEntries}: ${c.currentName}`}
-                </p>
+                <p className="text-sm text-zinc-500">{statusLabel}</p>
               </>
             )}
 

@@ -21,6 +21,7 @@ export default function UploadWizard({ directUploadEnabled }: { directUploadEnab
     handleBack,
     handleSubmit,
     zipPreviews,
+    pendingPreviews,
   } = useUploadWizard(directUploadEnabled);
 
   if (step === 1) {
@@ -31,6 +32,7 @@ export default function UploadWizard({ directUploadEnabled }: { directUploadEnab
           onAdd={handleAdd}
           onRemove={handleRemoveFile}
           previews={zipPreviews}
+          pendingPreviews={pendingPreviews}
         />
         <ZipConversionList
           conversions={zipConversions}

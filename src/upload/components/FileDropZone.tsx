@@ -11,6 +11,7 @@ interface Props {
   onAdd: (files: File[]) => void;
   onRemove: (index: number) => void;
   previews?: Map<string, ZipPreview>;
+  pendingPreviews?: Set<string>;
 }
 
 function formatSize(bytes: number): string {
@@ -26,7 +27,7 @@ function filterAcceptedFiles(fileList: FileList | File[]): File[] {
   });
 }
 
-export default function FileDropZone({ files, onAdd, onRemove, previews }: Props) {
+export default function FileDropZone({ files, onAdd, onRemove, previews, pendingPreviews }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [lightbox, setLightbox] = useState<{ fileName: string; index: number } | null>(null);
@@ -92,10 +93,11 @@ export default function FileDropZone({ files, onAdd, onRemove, previews }: Props
         <ul className="flex flex-col gap-1">
           {files.map((file, index) => {
             const preview = previews?.get(file.name);
+            const isPreviewPending = pendingPreviews?.has(file.name) ?? false;
             return (
               <li
                 key={index}
-                className="flex flex-col gap-2 rounded-md bg-zinc-50 px-3 py-2"
+                className="flex flex-col gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2"
               >
                 <div className="flex items-center justify-between">
                   <span className="mr-4 truncate text-base text-zinc-700">
@@ -121,6 +123,9 @@ export default function FileDropZone({ files, onAdd, onRemove, previews }: Props
                     totalPages={preview.totalPages}
                     onOpen={(i) => setLightbox({ fileName: file.name, index: i })}
                   />
+                )}
+                {!preview && isPreviewPending && (
+                  <p className="text-base text-zinc-500">Генерація прев&apos;ю…</p>
                 )}
               </li>
             );
