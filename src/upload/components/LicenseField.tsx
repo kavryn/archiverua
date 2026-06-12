@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useEffect } from "react";
 import { Listbox } from "@headlessui/react";
 import { ChevronDownIcon } from "@heroicons/react/24/outline";
 import { getEndYear, type DateState } from "./DateFields";
@@ -102,22 +102,15 @@ interface Props {
 export default function LicenseField({ dateState, author, value: rawValue, onChange, manuallySet, onSetManual, disabled }: Props) {
   const value = Array.isArray(rawValue) ? rawValue : [];
   const endYear = getEndYear(dateState);
-  const prevDatesRef = useRef<{ dateFrom: string; dateTo: string; dateMode: string } | null>(null);
 
   useEffect(() => {
-    const prev = prevDatesRef.current;
-    const curr = { dateFrom: dateState.dateFrom, dateTo: dateState.dateTo, dateMode: dateState.dateMode };
-    prevDatesRef.current = curr;
-
-    const datesChanged = prev !== null && (
-      prev.dateFrom !== curr.dateFrom ||
-      prev.dateTo !== curr.dateTo ||
-      prev.dateMode !== curr.dateMode
-    );
-
     if (manuallySet) {
-      if (!datesChanged) return;
-      onSetManual(false);
+      const available = new Set(getAvailableOptions(endYear, dateState.dateMode, author).map((o) => o.value));
+      const filtered = value.filter((v) => available.has(v));
+      if (filtered.length !== value.length) {
+        onChange(filtered);
+      }
+      return;
     }
 
     if (endYear !== null && endYear < THRESHOLD_120) {
@@ -129,15 +122,6 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateState.dateFrom, dateState.dateTo, dateState.dateMode, author]);
-
-  useEffect(() => {
-    const available = new Set(getAvailableOptions(endYear, dateState.dateMode, author).map((o) => o.value));
-    const filtered = value.filter((v) => available.has(v));
-    if (filtered.length !== value.length) {
-      onChange(filtered);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [author]);
 
   const hasDate =
     dateState.dateMode === "other"
