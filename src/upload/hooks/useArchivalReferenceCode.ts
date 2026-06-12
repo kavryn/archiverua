@@ -6,17 +6,21 @@ import { apiFetch } from "@/lib/api-fetch";
 
 type Patch = Partial<FileEntry> | ((e: FileEntry) => Partial<FileEntry>);
 
-const wikisourceNameCache = new Map<string, { name: string | null; exists: boolean }>();
+const wikisourceNameCache = new Map<string, Promise<{ name: string | null; exists: boolean }>>();
 
-async function fetchWikisourceName(
+function fetchWikisourceName(
   pageTitle: string
 ): Promise<{ name: string | null; exists: boolean }> {
   const cached = wikisourceNameCache.get(pageTitle);
   if (cached) return cached;
-  const res = await apiFetch(`/api/wikisource/name?title=${encodeURIComponent(pageTitle)}`);
-  const result = await res.json();
-  wikisourceNameCache.set(pageTitle, result);
-  return result;
+  const promise = (async () => {
+    const res = await apiFetch(`/api/wikisource/name?title=${encodeURIComponent(pageTitle)}`);
+    return res.json() as Promise<{ name: string | null; exists: boolean }>;
+  })();
+  // Don't cache failures — let the next caller retry.
+  promise.catch(() => wikisourceNameCache.delete(pageTitle));
+  wikisourceNameCache.set(pageTitle, promise);
+  return promise;
 }
 
 async function fetchNameField(
