@@ -4,7 +4,7 @@ import FieldError from "./FieldError";
 import LicenseField from "./LicenseField";
 import LicenseHelpPopup from "./LicenseHelpPopup";
 import WikisourceNameField from "./WikisourceNameField";
-import { type FileEntry, isFondNameEnabled, isOpysNameEnabled } from "../types";
+import { type FileEntry } from "../types";
 import { buildAutoFileName, isFileNameEnabled, usePublicFileName } from "../hooks/usePublicFileName";
 import { getEntryErrors } from "../validation";
 import { useArchivalReferenceCode } from "../hooks/useArchivalReferenceCode";
@@ -106,37 +106,8 @@ export default function EntryCard({ entry, onUpdate }: EntryCardProps) {
 
       {/* Name fields */}
       <div className="flex flex-col gap-2">
-        <WikisourceNameField
-          label="Назва фонду"
-          compactLabel="Фонд"
-          state={entry.fondName}
-          enabled={isFondNameEnabled(entry)}
-          placeholder={
-            entry.fondName.loading
-              ? "Завантаження…"
-              : "Офіційна назва фонду"
-          }
-          error={errors.fondName}
-          onChange={(value) =>
-            onUpdate({ fondName: { ...entry.fondName, value } })
-          }
-        />
-
-        <WikisourceNameField
-          label="Назва опису"
-          compactLabel="Опис"
-          optional
-          state={entry.opysName}
-          enabled={isOpysNameEnabled(entry)}
-          placeholder={
-            entry.opysName.loading
-              ? "Завантаження…"
-              : "Офіційна назва опису"
-          }
-          onChange={(value) =>
-            onUpdate({ opysName: { ...entry.opysName, value } })
-          }
-        />
+        <WikisourceNameField label="Фонд" state={entry.fondName} />
+        <WikisourceNameField label="Опис" state={entry.opysName} />
 
         <div>
           <label className="label">
