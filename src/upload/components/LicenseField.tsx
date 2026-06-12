@@ -122,11 +122,13 @@ export default function LicenseField({ dateState, author, value: rawValue, onCha
 
     if (endYear !== null && endYear < THRESHOLD_120) {
       onChange(["{{PD-scan|PD-old-assumed-expired}}"]);
+    } else if (endYear !== null && endYear < THRESHOLD_70 && author.trim() === "") {
+      onChange(["{{PD-scan|PD-Ukraine}}"]);
     } else {
       onChange([]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateState.dateFrom, dateState.dateTo, dateState.dateMode]);
+  }, [dateState.dateFrom, dateState.dateTo, dateState.dateMode, author]);
 
   useEffect(() => {
     const available = new Set(getAvailableOptions(endYear, dateState.dateMode, author).map((o) => o.value));
