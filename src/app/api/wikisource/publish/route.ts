@@ -11,11 +11,8 @@ type PageResult = { url: string; created?: boolean; error?: string };
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (session?.error === "RefreshTokenError") {
-    return NextResponse.json({ error: "AUTH_ERROR" }, { status: 401 });
-  }
   if (!session?.accessToken) {
-    return NextResponse.json({ error: "Не авторизовано" }, { status: 401 });
+    return NextResponse.json({ error: "AUTH_ERROR" }, { status: 401 });
   }
 
   const body = await request.json();

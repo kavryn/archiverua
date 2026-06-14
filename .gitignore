@@ -42,3 +42,6 @@ next-env.d.ts
 
 .idea
 *.iml
+
+# generated test PDFs
+/scripts/tmp-pdfs/
