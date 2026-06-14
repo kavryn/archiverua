@@ -10,7 +10,7 @@ const WIKISOURCE_BASE = WIKISOURCE_API_URL.replace(/\/w\/api\.php$/, "");
 
 // Async chunk assembly / publish polling, matching UploadWizard's checkStatus loop.
 export const UPLOAD_POLL_INTERVAL_MS = 3000;
-export const UPLOAD_POLL_TIMEOUT_MS = 10 * 60 * 1000;
+export const UPLOAD_POLL_TIMEOUT_MS = 20 * 60 * 1000;
 // UploadWizard fails immediately on any checkstatus 5xx. We're more lenient
 // (a single transient 504 from the edge shouldn't kill the upload), but we
 // won't let a real outage quietly burn the entire 10-min budget either —
@@ -411,7 +411,10 @@ class WikicommonsClient extends WikiClient {
   // Transient 5xx errors on checkstatus (Wikimedia edge times out while the
   // server-side job keeps running) are treated as "couldn't check this round,
   // retry next tick" — the 10-min overall timeout is the real safety net.
-  async waitForUploadCompletion(params: CheckUploadStatusParams): Promise<ChunkUploadResult> {
+  async waitForUploadCompletion(
+    params: CheckUploadStatusParams,
+    onPollTick?: (status: ChunkUploadResult) => void
+  ): Promise<ChunkUploadResult> {
     const startedAt = Date.now();
     // Window of consecutive 5xx with no successful checkstatus in between.
     // Reset to null any time the server actually responds (Poll or final).
@@ -424,6 +427,7 @@ class WikicommonsClient extends WikiClient {
           result: status.result ?? null,
           stage: status.stage ?? null,
         });
+        onPollTick?.(status);
         if (status.result !== "Poll") {
           return status;
         }
@@ -455,7 +459,10 @@ class WikicommonsClient extends WikiClient {
     }
   }
 
-  async commitChunkedUpload(params: CommitUploadParams): Promise<string> {
+  async commitChunkedUpload(
+    params: CommitUploadParams,
+    onPollTick?: (status: ChunkUploadResult) => void
+  ): Promise<string> {
     const fd = new FormData();
     fd.append("action", "upload");
     fd.append("format", "json");
@@ -490,12 +497,15 @@ class WikicommonsClient extends WikiClient {
     // Async publish: the file is being published by a job. Poll until it lands,
     // then re-check warnings on the final response (e.g. duplicate).
     if (data.upload?.result === "Poll") {
-      const status = await this.waitForUploadCompletion({
-        accessToken: params.accessToken,
-        csrfToken: params.csrfToken,
-        filekey: params.filekey,
-        useCrossOrigin: params.useCrossOrigin,
-      });
+      const status = await this.waitForUploadCompletion(
+        {
+          accessToken: params.accessToken,
+          csrfToken: params.csrfToken,
+          filekey: params.filekey,
+          useCrossOrigin: params.useCrossOrigin,
+        },
+        onPollTick
+      );
       throwOnUploadWarnings(status.warnings);
     }
 

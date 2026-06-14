@@ -75,6 +75,8 @@ export interface FileEntry {
   totalBytes: number;
   currentChunk: number;
   totalChunks: number;
+  uploadPhase: "uploading" | "assembling" | "publishing";
+  serverStage: string;
   submitted: boolean;
 }
 
@@ -111,6 +113,8 @@ export function makeEntry(file: File): FileEntry {
     totalBytes: 0,
     currentChunk: 0,
     totalChunks: 0,
+    uploadPhase: "uploading",
+    serverStage: "",
     submitted: false,
   };
 }

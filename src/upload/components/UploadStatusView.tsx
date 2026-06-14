@@ -27,6 +27,24 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
 }
 
+function uploadingLabel(entry: FileEntry): string {
+  return `Завантажено ${Math.round(entry.uploadProgress)}% (${formatBytes(entry.uploadedBytes)} / ${formatBytes(entry.totalBytes)})`;
+}
+
+function uploadPhaseLabel(phase: "uploading" | "assembling" | "publishing", stage: string): string {
+  if (phase === "assembling") {
+    if (stage === "queued") return "У черзі на обробку…";
+    if (stage === "assembling") return "Складання…";
+    if (stage === "hashing") return "Перевірка…";
+    return "Обробка…";
+  }
+  if (phase === "publishing") {
+    if (stage === "queued") return "У черзі на публікацію…";
+    return "Публікація на Вікісховищі…";
+  }
+  return "";
+}
+
 function FileStatusCard({ entry }: { entry: FileEntry }) {
   let commonsIcon;
   if (entry.status === "idle") commonsIcon = <IconIdle />;
@@ -65,9 +83,13 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
                 />
               </div>
               <span className="text-gray-500">
-                {`Завантажено ${Math.round(entry.uploadProgress)}% (${formatBytes(entry.uploadedBytes)} / ${formatBytes
-                    (entry.totalBytes)})`}
+                {entry.uploadPhase === "uploading"
+                  ? uploadingLabel(entry)
+                  : uploadPhaseLabel(entry.uploadPhase, entry.serverStage)}
               </span>
+              {entry.uploadPhase !== "uploading" && (
+                <span className="text-xs text-gray-400">Це може зайняти кілька хвилин.</span>
+              )}
             </div>
           )}
           {entry.status === "uploading" && entry.totalChunks === 0 && (

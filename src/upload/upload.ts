@@ -18,12 +18,16 @@ export type UploadResult =
   | { status: "duplicate"; duplicateUrl: string }
   | { status: "error"; errorMessage: string };
 
+export type UploadPhase = "uploading" | "assembling" | "publishing";
+
 export type ProgressCallback = (progress: {
   totalBytes: number;
   totalChunks: number;
   currentChunk: number;
   uploadedBytes: number;
   uploadProgress: number;
+  uploadPhase: UploadPhase;
+  serverStage: string;
 }) => void;
 
 type UploadApiResponse = { url?: string; duplicateUrl?: string; error?: string };
@@ -118,22 +122,26 @@ async function commitDirectUpload(
   metadata: UploadMetadata,
   accessToken: string,
   csrfToken: string,
-  useAsync: boolean
+  useAsync: boolean,
+  onPublishTick?: (stage: string) => void
 ): Promise<UploadResult> {
   const { filename, description, comment } = metadata;
   let currentCsrfToken = csrfToken;
 
   const doDirectCommitUpload = () =>
-    wikicommons.commitChunkedUpload({
-      accessToken,
-      csrfToken: currentCsrfToken,
-      filekey,
-      filename,
-      description,
-      comment,
-      useCrossOrigin: true,
-      useAsync,
-    });
+    wikicommons.commitChunkedUpload(
+      {
+        accessToken,
+        csrfToken: currentCsrfToken,
+        filekey,
+        filename,
+        description,
+        comment,
+        useCrossOrigin: true,
+        useAsync,
+      },
+      (s) => onPublishTick?.(s.stage ?? "")
+    );
 
   try {
     const url = await retryWithBackoff(async () => {
@@ -176,10 +184,17 @@ function reportUploadProgress(
     totalChunks: number;
     currentChunk: number;
     uploadedBytes: number;
+    uploadPhase?: UploadPhase;
+    serverStage?: string;
   }
 ): void {
   const uploadProgress = Math.round((progress.uploadedBytes / progress.totalBytes) * 100);
-  onProgress?.({ ...progress, uploadProgress });
+  onProgress?.({
+    ...progress,
+    uploadProgress,
+    uploadPhase: progress.uploadPhase ?? "uploading",
+    serverStage: progress.serverStage ?? "",
+  });
 }
 
 // Wait out a server-side async chunk-assembly job (result === "Poll"), matching
@@ -190,13 +205,17 @@ async function pollDirectUploadStatus(params: {
   accessToken: string;
   csrfToken: string;
   filekey: string;
+  onStageTick?: (stage: string) => void;
 }): Promise<{ filekey: string; offset: number }> {
-  const status = await wikicommons.waitForUploadCompletion({
-    accessToken: params.accessToken,
-    csrfToken: params.csrfToken,
-    filekey: params.filekey,
-    useCrossOrigin: true,
-  });
+  const status = await wikicommons.waitForUploadCompletion(
+    {
+      accessToken: params.accessToken,
+      csrfToken: params.csrfToken,
+      filekey: params.filekey,
+      useCrossOrigin: true,
+    },
+    (s) => params.onStageTick?.(s.stage ?? "")
+  );
   return { filekey: status.filekey, offset: status.offset };
 }
 
@@ -209,6 +228,7 @@ async function uploadDirectChunk(params: {
   fileSize: number;
   filename: string;
   useAsync: boolean;
+  onAssemblyTick?: (stage: string) => void;
 }): Promise<{ filekey: string; offset: number; csrfToken: string }> {
   let currentCsrfToken = params.csrfToken;
 
@@ -246,6 +266,7 @@ async function uploadDirectChunk(params: {
       accessToken: params.accessToken,
       csrfToken: currentCsrfToken,
       filekey: result.filekey,
+      onStageTick: params.onAssemblyTick,
     });
     return {
       filekey: polled.filekey,
@@ -312,6 +333,15 @@ async function uploadChunkedFile(
         fileSize,
         filename: file.name,
         useAsync,
+        onAssemblyTick: (stage) =>
+          reportUploadProgress(onProgress, {
+            totalBytes: fileSize,
+            totalChunks,
+            currentChunk: i + 1,
+            uploadedBytes: chunkEnd,
+            uploadPhase: "assembling",
+            serverStage: stage,
+          }),
       });
       filekey = result.filekey;
       confirmedOffset = result.offset ?? chunkEnd;
@@ -337,7 +367,27 @@ async function uploadChunkedFile(
   }
 
   if (useDirectUpload) {
-    return await commitDirectUpload(filekey, metadata, accessToken!, csrfToken!, useAsync);
+    const reportPublishing = (stage: string) =>
+      reportUploadProgress(onProgress, {
+        totalBytes: fileSize,
+        totalChunks,
+        currentChunk: totalChunks,
+        uploadedBytes: fileSize,
+        uploadPhase: "publishing",
+        serverStage: stage,
+      });
+    // Flip the UI out of "uploading" before the commit request goes out — the
+    // first checkstatus poll can be seconds away and we don't want to flash
+    // "100% uploaded" while we're actually waiting on the publish job.
+    reportPublishing("");
+    return await commitDirectUpload(
+      filekey,
+      metadata,
+      accessToken!,
+      csrfToken!,
+      useAsync,
+      reportPublishing
+    );
   }
 
   return await commitProxyUpload(filekey, metadata);
