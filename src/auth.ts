@@ -2,12 +2,12 @@ import NextAuth from "next-auth";
 import Wikimedia from "next-auth/providers/wikimedia";
 import type { Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
+import { cache } from "react";
 import { wikiFetch } from "@/lib/wiki-fetch";
 
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
-    error?: "RefreshTokenError";
   }
 }
 
@@ -16,16 +16,24 @@ declare module "next-auth/jwt" {
     accessToken?: string;
     refreshToken?: string;
     expiresAt?: number;
-    error?: "RefreshTokenError";
   }
 }
 
-const globalForRefresh = globalThis as unknown as {
-  _pendingRefreshes?: Map<string, Promise<JWT>>;
-};
-const pendingRefreshes = (globalForRefresh._pendingRefreshes ??= new Map());
+const REFRESH_LEEWAY_SEC = 60;
+const INFLIGHT_TTL_MS = 30_000;
 
-async function doRefresh(token: JWT): Promise<JWT> {
+// Dedup concurrent refreshes against Wikimedia. Wikimedia rotates the refresh
+// token on every successful exchange and invalidates the previous one, so two
+// parallel requests with the same refresh_token would race: first wins, second
+// gets 400. Keyed by the old refresh_token; entries linger 30s after the inflight
+// promise settles to absorb late callers (e.g. RSC `auth()` that runs after
+// middleware already triggered the refresh in the same request).
+const g = globalThis as unknown as {
+  _wikiRefreshInflight?: Map<string, Promise<JWT | null>>;
+};
+const inflight = (g._wikiRefreshInflight ??= new Map());
+
+async function doRefresh(token: JWT): Promise<JWT | null> {
   try {
     const res = await wikiFetch("https://meta.wikimedia.org/w/rest.php/oauth2/access_token", {
       method: "POST",
@@ -37,41 +45,37 @@ async function doRefresh(token: JWT): Promise<JWT> {
         client_secret: process.env.AUTH_WIKIMEDIA_SECRET!,
       }),
     });
-
     if (!res.ok) {
       const body = await res.text().catch(() => "(unreadable)");
-      console.error("[refreshAccessToken] Failed to refresh token", { status: res.status, body });
-      return { ...token, error: "RefreshTokenError" };
-    } else {
-      console.log("[refreshAccessToken] Token refreshed", { status: res.status });
+      console.error("[auth] refresh failed", { status: res.status, body });
+      return null;
     }
-
     const data = await res.json();
     return {
       ...token,
       accessToken: data.access_token,
       refreshToken: data.refresh_token ?? token.refreshToken,
       expiresAt: Math.floor(Date.now() / 1000) + data.expires_in,
-      error: undefined,
     };
   } catch (err) {
-    console.error("[refreshAccessToken] Unexpected error", err);
-    return { ...token, error: "RefreshTokenError" };
+    console.error("[auth] refresh error", err);
+    return null;
   }
 }
 
-async function refreshAccessToken(token: JWT): Promise<JWT> {
+async function refreshOnce(token: JWT): Promise<JWT | null> {
   const key = token.refreshToken!;
-  if (pendingRefreshes.has(key)) return pendingRefreshes.get(key)!;
-
-  const promise = doRefresh(token).finally(() => {
-    setTimeout(() => pendingRefreshes.delete(key), 30_000);
-  });
-  pendingRefreshes.set(key, promise);
-  return promise;
+  let p = inflight.get(key);
+  if (!p) {
+    p = doRefresh(token).finally(() => {
+      setTimeout(() => inflight.delete(key), INFLIGHT_TTL_MS);
+    });
+    inflight.set(key, p);
+  }
+  return p;
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const nextAuth = NextAuth({
   providers: [
     Wikimedia({
       clientId: process.env.AUTH_WIKIMEDIA_ID!,
@@ -81,7 +85,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: { strategy: "jwt" },
   callbacks: {
-    jwt({ token, account }) {
+    async jwt({ token, account }) {
       if (account) {
         return {
           ...token,
@@ -91,23 +95,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       }
 
-      // Token still valid
-      if (token.expiresAt && Date.now() / 1000 < token.expiresAt - 60) {
+      const forceExpired = process.env.DEBUG_FORCE_TOKEN_EXPIRED === "1";
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (!forceExpired && token.expiresAt && token.expiresAt - nowSec > REFRESH_LEEWAY_SEC) {
         return token;
       }
 
-      // Token expired — refresh
-      if (!token.refreshToken) {
-        console.error("[jwt] No refresh token available");
-        return { ...token, error: "RefreshTokenError" };
-      }
-
-      return refreshAccessToken(token);
+      // Returning null signals Auth.js to clear the session cookie (sessionStore.clean).
+      if (!token.refreshToken) return null;
+      return refreshOnce(token);
     },
     session({ session, token }: { session: Session; token: JWT }) {
       session.accessToken = token.accessToken;
-      session.error = token.error;
       return session;
     },
   },
 });
+
+export const { handlers, signIn, signOut } = nextAuth;
+export const auth = cache(nextAuth.auth);

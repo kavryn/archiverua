@@ -6,11 +6,8 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (session?.error === "RefreshTokenError") {
-    return NextResponse.json({ error: "AUTH_ERROR" }, { status: 401 });
-  }
   if (!session?.accessToken) {
-    return NextResponse.json({ error: "Не авторизовано" }, { status: 401 });
+    return NextResponse.json({ error: "AUTH_ERROR" }, { status: 401 });
   }
 
   const fd = await request.formData();

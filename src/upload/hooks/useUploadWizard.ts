@@ -45,7 +45,7 @@ export type ZipConversionState = {
 };
 
 export function useUploadWizard(directUploadEnabled: boolean) {
-  const { data: session } = useSession();
+  const { data: session, update: updateSession } = useSession();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [files, setFiles] = useState<File[]>([]);
   const [fileStates, setFileStates] = useState<FileEntry[]>([]);
@@ -351,11 +351,22 @@ export function useUploadWizard(directUploadEnabled: boolean) {
 
     updateEntry(index, { status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "" });
 
+    let accessToken = session?.accessToken;
+    if (directUploadEnabled) {
+      const refreshed = await updateSession();
+      accessToken = refreshed?.accessToken;
+      if (!accessToken) {
+        window.dispatchEvent(new CustomEvent("API_FETCH_AUTH_ERROR"));
+        updateEntry(index, { status: "error", errorMessage: "Сесія завершилась" });
+        return;
+      }
+    }
+
     try {
       const result = await uploadFile(
         entry,
         (progress) => updateEntry(index, progress),
-        session?.accessToken,
+        accessToken,
         directUploadEnabled
       );
 
