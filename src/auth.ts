@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Wikimedia from "next-auth/providers/wikimedia";
-import type { Session } from "next-auth";
+import type { DefaultSession, Session } from "next-auth";
 import type { JWT } from "next-auth/jwt";
 import { cache } from "react";
 import { wikiFetch } from "@/lib/wiki-fetch";
@@ -8,6 +8,9 @@ import { wikiFetch } from "@/lib/wiki-fetch";
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
+    user: {
+      id?: string;
+    } & DefaultSession["user"];
   }
 }
 
@@ -107,6 +110,8 @@ const nextAuth = NextAuth({
     },
     session({ session, token }: { session: Session; token: JWT }) {
       session.accessToken = token.accessToken;
+      // Stable per-user key for the server-side upload-eligibility cache.
+      if (session.user) session.user.id = token.sub;
       return session;
     },
   },
