@@ -5,6 +5,7 @@ import AuthErrorModal from "@/components/AuthErrorModal";
 import { NavigationGuardProvider } from "@/context/NavigationGuardContext";
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,19 +17,23 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const title = "Вікіархіватор";
-const description = "Допоможе опублікувати справи з українських архівів на Вікісховищі та Вікіджерелах";
-
 export const metadata: Metadata = {
-  title,
-  description,
+  metadataBase: new URL(SITE_URL),
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  icons: { icon: "/logo.svg" },
   openGraph: {
-    title,
-    description,
-    url: "https://wikiarchiver.toolforge.org",
-    siteName: title,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
     locale: "uk_UA",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
   },
 };
 
