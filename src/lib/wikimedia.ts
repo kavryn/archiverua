@@ -109,6 +109,32 @@ export class EditConflictError extends Error {
   }
 }
 
+// Both Commons and uk.wikisource grant the `autoconfirmed` right purely by
+// account age (wgAutoConfirmAge = 4 days, wgAutoConfirmCount = 0 — no edits).
+export const AUTOCONFIRM_AGE_DAYS = 4;
+
+// Wikimedia blocks publishing by accounts that are not yet autoconfirmed in two
+// ways we can't satisfy client-side: an hCaptcha from ConfirmEdit, and Commons
+// abuse filter 281 which disallows PDF uploads from such accounts. Both lift at
+// the autoconfirmed threshold and surface as hard, non-retryable API errors.
+export class UploadNotAllowedError extends Error {
+  constructor(
+    message = "Завантаження недоступне для нових облікових записів"
+  ) {
+    super(message);
+    this.name = "UploadNotAllowedError";
+  }
+}
+
+export interface AccountUploadAccess {
+  // Whether the account is autoconfirmed on this wiki — the threshold at which
+  // both the captcha and abuse filter 281 stop blocking uploads.
+  isAutoconfirmed: boolean;
+  // Local account registration timestamp (ISO 8601), or null if unavailable.
+  // Used to estimate when the account becomes autoconfirmed.
+  registrationDate: string | null;
+}
+
 export interface BlacklistResult {
   blacklisted: boolean;
   reason?: string;
@@ -181,6 +207,42 @@ class WikiClient {
     }
     const data = await res.json();
     return data.query.tokens.csrftoken as string;
+  }
+
+  async getAccountUploadAccess(accessToken: string): Promise<AccountUploadAccess> {
+    const params = new URLSearchParams({
+      action: "query",
+      meta: "userinfo",
+      uiprop: "rights|registrationdate",
+      format: "json",
+    });
+    const res = await wikiFetch(`${this.apiUrl}?${params}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to get account upload access: ${res.status}`);
+    }
+    const data = await res.json();
+    const userinfo = data?.query?.userinfo ?? {};
+    const rights: string[] = Array.isArray(userinfo.rights) ? userinfo.rights : [];
+    const isAutoconfirmed = rights.includes("autoconfirmed");
+    const registrationDate: string | null = userinfo.registrationdate ?? null;
+
+    // A non-autoconfirmed account is necessarily recent, so it must have a local
+    // registration timestamp — either real, or set to "now" when this very
+    // authenticated request auto-created the local account (CentralAuth/SUL
+    // auto-attach). A missing date here shouldn't be possible; it would silently
+    // fail open (treated as eligible), so flag it loudly. (Old accounts with no
+    // registration timestamp are fine: they're always autoconfirmed, where we
+    // don't use the date at all.)
+    if (!isAutoconfirmed && registrationDate === null) {
+      console.error(
+        `[getAccountUploadAccess] non-autoconfirmed account with no registrationdate on ${this.apiUrl}`
+      );
+    }
+
+    return { isAutoconfirmed, registrationDate };
   }
 }
 
@@ -491,6 +553,13 @@ class WikicommonsClient extends WikiClient {
 
     if (data.error) {
       console.error("[commitChunkedUpload] API error", data.error);
+      const code: string = data.error.code ?? "";
+      // captcha (ConfirmEdit) and abuse filter 281 both gate not-yet-autoconfirmed
+      // accounts and can't be satisfied from here — surface a clean,
+      // non-retryable error instead of retrying.
+      if (code === "captcha" || code.startsWith("abusefilter")) {
+        throw new UploadNotAllowedError();
+      }
       throw new Error(data.error.info ?? "Commit upload error");
     }
 
@@ -662,3 +731,55 @@ export async function updateWikisourcePage(
 
 export const wikicommons = new WikicommonsClient();
 export const wikisource = new WikisourceClient();
+
+function autoconfirmDate(registrationDate: string | null): string | null {
+  if (!registrationDate) return null;
+  const registered = new Date(registrationDate);
+  if (Number.isNaN(registered.getTime())) return null;
+  return new Date(
+    registered.getTime() + AUTOCONFIRM_AGE_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+}
+
+// Computes the date (ISO 8601) the account becomes eligible to upload, by checking
+// autoconfirmed status + registration on both wikis — the threshold that lifts the
+// captcha and abuse filter 281. null = already eligible or indeterminate. Both
+// wikis use the same 4-day threshold but track local registration independently,
+// so we return the later date among those still blocking. Network call — see the
+// cached wrapper below.
+export async function resolveUploadAvailableFrom(accessToken: string): Promise<string | null> {
+  const [commons, source] = await Promise.all([
+    wikicommons.getAccountUploadAccess(accessToken),
+    wikisource.getAccountUploadAccess(accessToken),
+  ]);
+  const dates = [
+    commons.isAutoconfirmed ? null : autoconfirmDate(commons.registrationDate),
+    source.isAutoconfirmed ? null : autoconfirmDate(source.registrationDate),
+  ].filter((d): d is string => d !== null);
+  return dates.length > 0 ? dates.reduce((latest, d) => (d > latest ? d : latest)) : null;
+}
+
+// The eligibility date is derived from the account's immutable registration date,
+// so it never changes for a given user — cache it per user for the lifetime of the
+// server process to avoid hitting the wiki API on every page render. Only
+// successful lookups are cached; failures fall through so the next render retries.
+const uploadAvailableFromCache = new Map<string, string | null>();
+
+export async function getUploadAvailableFrom(
+  userId: string,
+  accessToken: string
+): Promise<string | null> {
+  const cached = uploadAvailableFromCache.get(userId);
+  if (cached !== undefined) return cached;
+  const availableFrom = await resolveUploadAvailableFrom(accessToken);
+  uploadAvailableFromCache.set(userId, availableFrom);
+  return availableFrom;
+}
+
+// Pure, network-free check for rendering: an account may upload once its
+// eligibility date has passed. A null or unparseable date fails open (allowed).
+export function isUploadAllowed(availableFrom: string | null): boolean {
+  if (!availableFrom) return true;
+  const ts = new Date(availableFrom).getTime();
+  return Number.isNaN(ts) || ts <= Date.now();
+}

@@ -3,7 +3,7 @@ import { type FileEntry } from "./types";
 import { getEffectiveFileName } from "./hooks/usePublicFileName";
 import { apiFetch } from "@/lib/api-fetch";
 import { buildCommonsDescription, COMMONS_UPLOAD_COMMENT } from "@/lib/wikicommons-upload";
-import { DuplicateFileError, wikicommons } from "@/lib/wikimedia";
+import { UploadNotAllowedError, DuplicateFileError, wikicommons } from "@/lib/wikimedia";
 
 export const CHUNK_SIZE = 5 * 1024 * 1024;
 export const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024;
@@ -41,12 +41,16 @@ function buildWikiSourceDateStr(dateFrom: string, dateTo: string, isArbitraryDat
   return `${dateFrom}-${dateTo}`;
 }
 
-async function retryWithBackoff<T>(fn: () => Promise<T>, retries: number): Promise<T> {
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  retries: number,
+  shouldRetry: (err: unknown) => boolean = () => true
+): Promise<T> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn();
     } catch (err) {
-      if (attempt === retries) throw err;
+      if (attempt === retries || !shouldRetry(err)) throw err;
       await new Promise((resolve) => setTimeout(resolve, Math.pow(2, attempt + 1) * 1000));
     }
   }
@@ -154,7 +158,7 @@ async function commitDirectUpload(
         }
         throw err;
       }
-    }, MAX_CHUNK_RETRIES);
+    }, MAX_CHUNK_RETRIES, (err) => !(err instanceof UploadNotAllowedError));
     return { status: "success", url };
   } catch (err) {
     if (err instanceof DuplicateFileError) {
