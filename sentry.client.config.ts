@@ -15,16 +15,16 @@ Sentry.init({
     if (message.startsWith("[Fast Refresh]") || message.startsWith("[HMR]")) {
       return null;
     }
-    if (message.startsWith("[wikiFetch]")) {
-      const statusMatch = message.match(/->\s(\d{3})$/);
-      if (!statusMatch) {
-        return null;
-      }
-      const status = Number(statusMatch[1]);
-      if (status < 400) {
-        return null;
-      }
-    }
+//     if (message.startsWith("[wikiFetch]")) {
+//       const statusMatch = message.match(/->\s(\d{3})$/);
+//       if (!statusMatch) {
+//         return null;
+//       }
+//       const status = Number(statusMatch[1]);
+//       if (status < 400) {
+//         return null;
+//       }
+//     }
     return log;
   },
   sendDefaultPii: false,
