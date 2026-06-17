@@ -1,6 +1,8 @@
 import pLimit from "p-limit";
 import { type FileEntry } from "./types";
 import { getEffectiveFileName } from "./hooks/usePublicFileName";
+import type { UploadFailurePhase } from "./uploadFailureSentry";
+import { captureUploadFailure } from "./uploadFailureSentry";
 import { apiFetch } from "@/lib/api-fetch";
 import { buildCommonsDescription, COMMONS_UPLOAD_COMMENT } from "@/lib/wikicommons-upload";
 import { UploadNotAllowedError, DuplicateFileError, wikicommons } from "@/lib/wikimedia";
@@ -33,6 +35,41 @@ export type ProgressCallback = (progress: {
 type UploadApiResponse = { url?: string; duplicateUrl?: string; error?: string };
 type UploadMetadata = { filename: string; description: string; comment: string };
 type ProxyUploadPayload = Pick<UploadMetadata, "filename" | "description">;
+type DirectUploadFailureError = Error & {
+  uploadPhase?: Extract<UploadFailurePhase, "uploading" | "assembling" | "publishing">;
+  serverStage?: string;
+};
+
+function annotateDirectUploadFailure(
+  error: unknown,
+  metadata: {
+    uploadPhase: Extract<UploadFailurePhase, "uploading" | "assembling" | "publishing">;
+    serverStage?: string;
+  }
+): DirectUploadFailureError {
+  const normalized =
+    error instanceof Error
+      ? error
+      : new Error(typeof error === "string" && error.trim() !== "" ? error : "Unknown upload failure");
+  const annotated = normalized as DirectUploadFailureError;
+  annotated.uploadPhase = metadata.uploadPhase;
+  if (metadata.serverStage !== undefined) {
+    annotated.serverStage = metadata.serverStage;
+  }
+  return annotated;
+}
+
+function getDirectUploadFailureMetadata(error: unknown): {
+  uploadPhase?: Extract<UploadFailurePhase, "uploading" | "assembling" | "publishing">;
+  serverStage?: string;
+} {
+  if (!(error instanceof Error)) return {};
+  const annotated = error as DirectUploadFailureError;
+  return {
+    uploadPhase: annotated.uploadPhase,
+    serverStage: annotated.serverStage,
+  };
+}
 
 function buildWikiSourceDateStr(dateFrom: string, dateTo: string, isArbitraryDate: boolean): string {
   if (isArbitraryDate || !dateTo || dateFrom === dateTo) {
@@ -266,12 +303,20 @@ async function uploadDirectChunk(params: {
   const chunkEnd = params.chunkStart + params.chunkBlob.size;
 
   if (result.result === "Poll") {
-    const polled = await pollDirectUploadStatus({
-      accessToken: params.accessToken,
-      csrfToken: currentCsrfToken,
-      filekey: result.filekey,
-      onStageTick: params.onAssemblyTick,
-    });
+    let polled;
+    try {
+      polled = await pollDirectUploadStatus({
+        accessToken: params.accessToken,
+        csrfToken: currentCsrfToken,
+        filekey: result.filekey,
+        onStageTick: params.onAssemblyTick,
+      });
+    } catch (err) {
+      throw annotateDirectUploadFailure(err, {
+        uploadPhase: "assembling",
+        serverStage: result.stage,
+      });
+    }
     return {
       filekey: polled.filekey,
       offset: polled.offset || chunkEnd,
@@ -309,6 +354,33 @@ async function uploadChunkedFile(
 ): Promise<UploadResult> {
   const fileSize = file.size;
   const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+  const useAsync = fileSize > ASYNC_UPLOAD_THRESHOLD;
+  const captureDirectFailure = (
+    error: unknown,
+    patch: {
+      uploadPhase: "uploading" | "assembling" | "publishing";
+      currentChunk?: number;
+      chunkStart?: number;
+      chunkSize?: number;
+      filekey?: string | null;
+      serverStage?: string;
+    }
+  ) =>
+    captureUploadFailure(error, {
+      transport: "direct",
+      uploadPhase: patch.uploadPhase,
+      publicFileName: metadata.filename,
+      diskFileName: file.name,
+      fileSize,
+      fileType: file.type || undefined,
+      totalChunks,
+      currentChunk: patch.currentChunk,
+      chunkStart: patch.chunkStart,
+      chunkSize: patch.chunkSize,
+      filekey: patch.filekey,
+      serverStage: patch.serverStage,
+      useAsync,
+    });
 
   reportUploadProgress(onProgress, {
     totalBytes: fileSize,
@@ -319,8 +391,15 @@ async function uploadChunkedFile(
 
   let filekey = "";
   let confirmedOffset = 0;
-  let csrfToken = useDirectUpload ? await wikicommons.getCsrfToken(accessToken!, true) : undefined;
-  const useAsync = fileSize > ASYNC_UPLOAD_THRESHOLD;
+  let csrfToken: string | undefined;
+  if (useDirectUpload) {
+    try {
+      csrfToken = await wikicommons.getCsrfToken(accessToken!, true);
+    } catch (err) {
+      captureDirectFailure(err, { uploadPhase: "uploading", filekey: null });
+      throw err;
+    }
+  }
 
   for (let i = 0; i < totalChunks; i++) {
     const chunkStart = i * CHUNK_SIZE;
@@ -328,25 +407,41 @@ async function uploadChunkedFile(
     const chunkBlob = file.slice(chunkStart, chunkEnd);
 
     if (useDirectUpload) {
-      const result = await uploadDirectChunk({
-        accessToken: accessToken!,
-        csrfToken: csrfToken!,
-        filekey,
-        chunkStart,
-        chunkBlob,
-        fileSize,
-        filename: metadata.filename,
-        useAsync,
-        onAssemblyTick: (stage) =>
-          reportUploadProgress(onProgress, {
-            totalBytes: fileSize,
-            totalChunks,
-            currentChunk: i + 1,
-            uploadedBytes: chunkEnd,
-            uploadPhase: "assembling",
-            serverStage: stage,
-          }),
-      });
+      let lastAssemblyStage = "";
+      let result;
+      try {
+        result = await uploadDirectChunk({
+          accessToken: accessToken!,
+          csrfToken: csrfToken!,
+          filekey,
+          chunkStart,
+          chunkBlob,
+          fileSize,
+          filename: metadata.filename,
+          useAsync,
+          onAssemblyTick: (stage) =>
+            ((lastAssemblyStage = stage),
+            reportUploadProgress(onProgress, {
+              totalBytes: fileSize,
+              totalChunks,
+              currentChunk: i + 1,
+              uploadedBytes: chunkEnd,
+              uploadPhase: "assembling",
+              serverStage: stage,
+            })),
+        });
+      } catch (err) {
+        const failure = getDirectUploadFailureMetadata(err);
+        captureDirectFailure(err, {
+          uploadPhase: failure.uploadPhase ?? "uploading",
+          currentChunk: i + 1,
+          chunkStart,
+          chunkSize: chunkBlob.size,
+          filekey: filekey || null,
+          serverStage: failure.serverStage ?? (lastAssemblyStage || undefined),
+        });
+        throw err;
+      }
       filekey = result.filekey;
       confirmedOffset = result.offset ?? chunkEnd;
       csrfToken = result.csrfToken;
@@ -384,14 +479,23 @@ async function uploadChunkedFile(
     // first checkstatus poll can be seconds away and we don't want to flash
     // "100% uploaded" while we're actually waiting on the publish job.
     reportPublishing("");
-    return await commitDirectUpload(
-      filekey,
-      metadata,
-      accessToken!,
-      csrfToken!,
-      useAsync,
-      reportPublishing
-    );
+    try {
+      return await commitDirectUpload(
+        filekey,
+        metadata,
+        accessToken!,
+        csrfToken!,
+        useAsync,
+        reportPublishing
+      );
+    } catch (err) {
+      captureDirectFailure(err, {
+        uploadPhase: "publishing",
+        currentChunk: totalChunks,
+        filekey,
+      });
+      throw err;
+    }
   }
 
   return await commitProxyUpload(filekey, metadata);
