@@ -4,8 +4,19 @@ Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
   enableLogs: true,
-  integrations: (defaultIntegrations) =>
-    defaultIntegrations.filter((integration) => integration.name !== "BrowserSession"),
+  integrations: (defaultIntegrations) => [
+    ...defaultIntegrations,
+    Sentry.consoleLoggingIntegration({
+      levels: ["log", "info", "warn", "error"],
+    }),
+  ],
+  beforeSendLog(log) {
+    const message = String(log.message ?? "");
+    if (message.startsWith("[Fast Refresh]") || message.startsWith("[HMR]")) {
+      return null;
+    }
+    return log;
+  },
   sendDefaultPii: false,
   tracesSampleRate: 0,
 });

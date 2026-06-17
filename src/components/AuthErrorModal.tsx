@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
+import * as Sentry from "@sentry/nextjs";
 import { signOut } from "next-auth/react";
 import { useNavigationGuard } from "@/context/NavigationGuardContext";
 
@@ -40,6 +41,7 @@ export default function AuthErrorModal() {
               type="button"
               onClick={() => {
                 setShouldGuard(false);
+                Sentry.setUser(null);
                 signOut({ callbackUrl: "/" });
               }}
               className="btn-primary"
