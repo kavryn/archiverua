@@ -126,6 +126,99 @@ describe("resolveUploadAvailableFrom", () => {
   });
 });
 
+describe("Wikicommons upload error logging", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("logs sanitized chunk upload context for API errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          error: { code: "stashfailed", info: "Chunk upload error", "*": "backend detail" },
+          upload: { filekey: "fk1", offset: 1024, result: "Poll", stage: "queued" },
+        }),
+      })
+    );
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      wikicommons.uploadFirstChunk({
+        accessToken: "tok",
+        csrfToken: "csrf",
+        filename: "scan.pdf",
+        chunk: new Blob(["abc"]),
+        fileSize: 4096,
+        useAsync: true,
+        useCrossOrigin: true,
+      })
+    ).rejects.toThrow("Chunk upload error");
+
+    expect(err).toHaveBeenCalledWith("[uploadFirstChunk] API error", {
+      error: {
+        code: "stashfailed",
+        info: "Chunk upload error",
+        details: "backend detail",
+      },
+      filename: "scan.pdf",
+      fileSize: 4096,
+      requestedOffset: 0,
+      returnedOffset: 1024,
+      filekey: "fk1",
+      result: "Poll",
+      stage: "queued",
+      useAsync: true,
+      useCrossOrigin: true,
+    });
+  });
+});
+
+describe("Wikisource edit error logging", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("logs sanitized edit context for API errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          error: { code: "protectedpage", info: "Wikisource edit error", "*": "backend detail" },
+        }),
+      })
+    );
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      wikisource.editPage({
+        accessToken: "tok",
+        csrfToken: "csrf",
+        title: "Page:Scan.pdf/1",
+        content: "text",
+        summary: "summary",
+        basetimestamp: "2026-06-17T18:00:00Z",
+        starttimestamp: "2026-06-17T18:00:01Z",
+      })
+    ).rejects.toThrow("Wikisource edit error");
+
+    expect(err).toHaveBeenCalledWith("[editPage] API error", {
+      error: {
+        code: "protectedpage",
+        info: "Wikisource edit error",
+        details: "backend detail",
+      },
+      title: "Page:Scan.pdf/1",
+      hasBasetimestamp: true,
+      hasStarttimestamp: true,
+    });
+  });
+});
+
 describe("getUploadAvailableFrom (cache)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
