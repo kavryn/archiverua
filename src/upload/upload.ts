@@ -335,7 +335,7 @@ async function uploadChunkedFile(
         chunkStart,
         chunkBlob,
         fileSize,
-        filename: file.name,
+        filename: metadata.filename,
         useAsync,
         onAssemblyTick: (stage) =>
           reportUploadProgress(onProgress, {
@@ -353,7 +353,7 @@ async function uploadChunkedFile(
     } else {
       const result = await uploadProxyChunk({
         chunkBlob,
-        filename: file.name,
+        filename: metadata.filename,
         fileSize,
         chunkStart,
         filekey,
