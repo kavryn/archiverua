@@ -20,6 +20,7 @@ export default function UploadWizard({ directUploadEnabled }: { directUploadEnab
     handleContinue,
     handleBack,
     handleSubmit,
+    retryEntry,
     zipPreviews,
     pendingPreviews,
     zipSourced,
@@ -53,7 +54,7 @@ export default function UploadWizard({ directUploadEnabled }: { directUploadEnab
   }
 
   if (step === 3) {
-    return <UploadStatusView fileStates={fileStates} />;
+    return <UploadStatusView fileStates={fileStates} onRetry={retryEntry} />;
   }
 
   return (

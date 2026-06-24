@@ -22,6 +22,19 @@ function IconWarning() {
   return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500 shrink-0" />;
 }
 
+function RetryButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 active:bg-blue-800"
+    >
+      <ArrowPathIcon className="w-4 h-4" />
+      Повторити
+    </button>
+  );
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} КБ`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`;
@@ -45,7 +58,7 @@ function uploadPhaseLabel(phase: "uploading" | "assembling" | "publishing", stag
   return "";
 }
 
-function FileStatusCard({ entry }: { entry: FileEntry }) {
+function FileStatusCard({ entry, onRetry }: { entry: FileEntry; onRetry: () => void }) {
   let commonsIcon;
   if (entry.status === "idle") commonsIcon = <IconIdle />;
   else if (entry.status === "uploading") commonsIcon = <IconSpinner />;
@@ -109,7 +122,10 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
             </span>
           )}
           {entry.status === "error" && (
-            <span className="text-red-600">{entry.errorMessage}</span>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-red-600">{entry.errorMessage}</span>
+              <RetryButton onClick={onRetry} />
+            </div>
           )}
         </div>
       </div>
@@ -177,12 +193,24 @@ function FileStatusCard({ entry }: { entry: FileEntry }) {
               )}
             </div>
           )}
+          {entry.wikisourceStatus === "error" && (
+            <div className="ml-7 flex items-center justify-between gap-3 text-sm">
+              <span className="text-red-600">Не вдалось оновити сторінки у Вікіджерелах</span>
+              <RetryButton onClick={onRetry} />
+            </div>
+          )}
         </div>
     </div>
   );
 }
 
-export default function UploadStatusView({ fileStates }: { fileStates: FileEntry[] }) {
+export default function UploadStatusView({
+  fileStates,
+  onRetry,
+}: {
+  fileStates: FileEntry[];
+  onRetry: (index: number) => void;
+}) {
   const allDone = fileStates.length > 0 && fileStates.every(
     (e) => ["success", "error", "duplicate"].includes(e.status) && e.wikisourceStatus !== "pending"
   );
@@ -195,7 +223,7 @@ export default function UploadStatusView({ fileStates }: { fileStates: FileEntry
         <p className="text-sm text-gray-600">Завантаження в процесі — не закривайте сторінку.</p>
       )}
       {fileStates.map((entry, i) => (
-        <FileStatusCard key={i} entry={entry} />
+        <FileStatusCard key={i} entry={entry} onRetry={() => onRetry(i)} />
       ))}
     </div>
   );

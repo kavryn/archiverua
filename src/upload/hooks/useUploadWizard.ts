@@ -63,6 +63,10 @@ export function useUploadWizard(directUploadEnabled: boolean) {
   // handleAddZips), so name → opfsName is a safe lookup.
   const opfsNamesRef = useRef<Map<string, string>>(new Map());
   const zipPreviewsRef = useRef<Map<string, ZipPreview>>(zipPreviews);
+  // Single shared concurrency limiter for the whole upload run. handleSubmit and
+  // manual per-file retries funnel through it, so retrying several failed files
+  // never exceeds MAX_CONCURRENT_UPLOADS in flight at once.
+  const uploadLimitRef = useRef(pLimit(MAX_CONCURRENT_UPLOADS));
 
   useEffect(() => {
     zipPreviewsRef.current = zipPreviews;
@@ -347,10 +351,20 @@ export function useUploadWizard(directUploadEnabled: boolean) {
     setStep(1);
   }
 
+  async function publishWikisource(index: number, entry: FileEntry) {
+    try {
+      updateEntry(index, { wikisourceStatus: "pending" });
+      const wikisourceResult = await callWikisourcePublish(entry);
+      updateEntry(index, { wikisourceStatus: "success", wikisourceResult });
+    } catch {
+      updateEntry(index, { wikisourceStatus: "error" });
+    }
+  }
+
   async function processEntry(index: number, entry: FileEntry) {
     if (entry.status === "success" || entry.status === "duplicate") return;
 
-    updateEntry(index, { status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "" });
+    updateEntry(index, { status: "uploading", errorMessage: "", resultUrl: "", duplicateUrl: "", wikisourceStatus: "idle" });
 
     let accessToken = session?.accessToken;
     if (directUploadEnabled) {
@@ -379,13 +393,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
           opfsNamesRef.current.delete(entry.file.name);
           removeOpfsFile(opfsName);
         }
-        try {
-          updateEntry(index, { wikisourceStatus: "pending" });
-          const wikisourceResult = await callWikisourcePublish(entry);
-          updateEntry(index, { wikisourceStatus: "success", wikisourceResult });
-        } catch {
-          updateEntry(index, { wikisourceStatus: "error" });
-        }
+        await publishWikisource(index, entry);
       } else if (result.status === "duplicate") {
         updateEntry(index, { status: "duplicate", duplicateUrl: result.duplicateUrl, wikisourceStatus: "cancelled" });
       } else {
@@ -411,8 +419,23 @@ export function useUploadWizard(directUploadEnabled: boolean) {
 
     setStep(3);
 
-    const limit = pLimit(MAX_CONCURRENT_UPLOADS);
+    const limit = uploadLimitRef.current;
     await Promise.all(current.map((entry, index) => limit(() => processEntry(index, entry))));
+  }
+
+  // Manual retry for a single failed entry on the status page. Routed through
+  // the shared limiter so multiple retries respect MAX_CONCURRENT_UPLOADS.
+  function retryEntry(index: number) {
+    const entry = fileStates[index];
+    if (!entry || entry.status === "uploading" || entry.wikisourceStatus === "pending") return;
+    const limit = uploadLimitRef.current;
+    // File is already on Commons but the Wikisource pages failed — retry only
+    // the publish step; re-uploading would just come back as a duplicate.
+    if (entry.status === "success" && entry.wikisourceStatus === "error") {
+      limit(() => publishWikisource(index, entry));
+    } else {
+      limit(() => processEntry(index, entry));
+    }
   }
 
   const isAnyUploading = fileStates.some((e) => e.status === "uploading" || e.wikisourceStatus === "pending");
@@ -442,6 +465,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
     handleContinue,
     handleBack,
     handleSubmit,
+    retryEntry,
     zipPreviews,
     pendingPreviews,
     zipSourced,
