@@ -204,9 +204,28 @@ function logWikiApiError(
     context?: Record<string, unknown>;
   }
 ): void {
-  console.error(`[${tag}] API error`, {
+  const normalized = details.error !== undefined ? normalizeApiError(details.error) : undefined;
+  // Flatten the error into top-level string fields. Sentry's console breadcrumb
+  // integration serializes nested objects shallowly (collapsing them to "[Object]"),
+  // so a nested { error: { code, info } } would lose exactly the useful part.
+  const errorFields =
+    normalized === undefined
+      ? {}
+      : typeof normalized === "string"
+        ? { error: normalized }
+        : {
+            ...(normalized.code !== undefined ? { errorCode: normalized.code } : {}),
+            ...(normalized.info !== undefined ? { errorInfo: normalized.info } : {}),
+            ...(normalized.details !== undefined ? { errorDetails: normalized.details } : {}),
+          };
+
+  // Put the error info into the message itself so the breadcrumb text is meaningful
+  // (otherwise the object arg renders as "[object Object]").
+  const info =
+    typeof errorFields === "object" && "errorInfo" in errorFields ? errorFields.errorInfo : undefined;
+  console.error(`[${tag}] API error${info ? `: ${info}` : ""}`, {
     ...(details.status !== undefined ? { status: details.status } : {}),
-    ...(details.error !== undefined ? { error: normalizeApiError(details.error) } : {}),
+    ...errorFields,
     ...details.context,
   });
 }
