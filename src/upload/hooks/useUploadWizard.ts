@@ -368,6 +368,18 @@ export function useUploadWizard(directUploadEnabled: boolean) {
 
     let accessToken = session?.accessToken;
     if (directUploadEnabled) {
+      // updateSession() always hits /api/auth/session; offline it fails and
+      // returns null, which we'd otherwise misread as an expired session and
+      // pop the "log in again" modal. Detect the obvious offline case first and
+      // surface a retryable network error instead.
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        updateEntry(index, {
+          status: "error",
+          errorMessage: "Немає з'єднання з інтернетом",
+          wikisourceStatus: "cancelled",
+        });
+        return;
+      }
       const refreshed = await updateSession();
       accessToken = refreshed?.accessToken;
       if (!accessToken) {
