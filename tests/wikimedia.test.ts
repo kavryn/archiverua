@@ -157,12 +157,10 @@ describe("Wikicommons upload error logging", () => {
       })
     ).rejects.toThrow("Chunk upload error");
 
-    expect(err).toHaveBeenCalledWith("[uploadFirstChunk] API error", {
-      error: {
-        code: "stashfailed",
-        info: "Chunk upload error",
-        details: "backend detail",
-      },
+    expect(err).toHaveBeenCalledWith("[uploadFirstChunk] API error: Chunk upload error", {
+      errorCode: "stashfailed",
+      errorInfo: "Chunk upload error",
+      errorDetails: "backend detail",
       filename: "scan.pdf",
       fileSize: 4096,
       requestedOffset: 0,
@@ -206,12 +204,10 @@ describe("Wikisource edit error logging", () => {
       })
     ).rejects.toThrow("Wikisource edit error");
 
-    expect(err).toHaveBeenCalledWith("[editPage] API error", {
-      error: {
-        code: "protectedpage",
-        info: "Wikisource edit error",
-        details: "backend detail",
-      },
+    expect(err).toHaveBeenCalledWith("[editPage] API error: Wikisource edit error", {
+      errorCode: "protectedpage",
+      errorInfo: "Wikisource edit error",
+      errorDetails: "backend detail",
       title: "Page:Scan.pdf/1",
       hasBasetimestamp: true,
       hasStarttimestamp: true,
