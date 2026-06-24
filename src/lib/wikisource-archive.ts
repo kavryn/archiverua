@@ -46,8 +46,23 @@ export function extractFondPrefix(fond: string): string {
   return match ? match[1] : "Д";
 }
 
+// Archives whose fond list lives on the archive root page (Архів:ЦДІАЛ),
+// where fonds are child subpages ([[/159/]]). Other archives use a
+// prefix subpage (Архів:ЦДАВО/Р) where fonds are siblings ([[../Р-34/]]).
+const ROOT_ARCHIVES = new Set(["ЦДІАЛ", "ЦДІАК", "ЦДАВО"]);
+
+export function isRootArchive(archiveAbbr: string): boolean {
+  return ROOT_ARCHIVES.has(archiveAbbr);
+}
+
+// Link prefix for fond wikilinks: "/" for child subpages on root archives,
+// "../" for sibling subpages on prefix pages.
+export function fondLinkPrefix(archiveAbbr: string): string {
+  return isRootArchive(archiveAbbr) ? "/" : "../";
+}
+
 export function getArchivePageTitle(archiveAbbr: string, fond: string): string {
-  if (archiveAbbr === "ЦДІАЛ" || archiveAbbr === "ЦДІАК" || archiveAbbr === "ЦДАВО") {
+  if (isRootArchive(archiveAbbr)) {
     return `Архів:${archiveAbbr}`;
   }
   return `Архів:${archiveAbbr}/${extractFondPrefix(fond)}`;
@@ -56,9 +71,10 @@ export function getArchivePageTitle(archiveAbbr: string, fond: string): string {
 export function buildFondRow(
   fond: string,
   name: string,
-  columnCount: number
+  columnCount: number,
+  linkPrefix: string
 ): string {
-  return buildRow(fond, [name, "", ""], columnCount, "../");
+  return buildRow(fond, [name, "", ""], columnCount, linkPrefix);
 }
 
 export function buildNewArchivePage(params: ArchivePageParams): string {
@@ -75,6 +91,7 @@ export function buildNewArchivePage(params: ArchivePageParams): string {
 !№||Назва фонду||Крайні дати||Справ`;
 
   const columnCount = 4;
+  const linkPrefix = fondLinkPrefix(params.archiveAbbr);
 
   const prefix = extractFondPrefix(params.fond);
   // Strip prefix+dash to get numeric part: "Р-34" → "34", "1" → "1"
@@ -82,19 +99,22 @@ export function buildNewArchivePage(params: ArchivePageParams): string {
   const isFirst = numericPart === "1";
 
   if (isFirst) {
-    const row = buildFondRow(params.fond, params.fondName, columnCount);
+    const row = buildFondRow(params.fond, params.fondName, columnCount, linkPrefix);
     return `${template}\n\n== Фонди ==\n${tableHeader}\n${row}\n|}`;
   }
 
   const placeholderId = prefix === "Д" ? "1" : `${prefix}-1`;
-  const placeholderRow = buildFondRow(placeholderId, "", columnCount);
-  const actualRow = buildFondRow(params.fond, params.fondName, columnCount);
+  const placeholderRow = buildFondRow(placeholderId, "", columnCount, linkPrefix);
+  const actualRow = buildFondRow(params.fond, params.fondName, columnCount, linkPrefix);
   return `${template}\n\n== Фонди ==\n${tableHeader}\n${placeholderRow}\n${actualRow}\n|}`;
 }
 
 export function parseArchivePage(content: string, params: ArchivePageParams): ParsedWikiTable {
-  // Matches [[../Р-34/]] → "Р-34", [[../1/]] → "1"
-  const parseOptions = { idRegex: /\[\[\.\.\/([^/]+)\/\]\]/ };
+  // Root archives use child links [[/159/]]; prefix pages use sibling links [[../Р-34/]]
+  const idRegex = isRootArchive(params.archiveAbbr)
+    ? /\[\[\/([^/]+)\/\]\]/
+    : /\[\[\.\.\/([^/]+)\/\]\]/;
+  const parseOptions = { idRegex };
   return parseOrEmptyTable(content, ARCHIVE_SCHEMA, parseOptions, (err) => {
     const title = getArchivePageTitle(params.archiveAbbr, params.fond);
     logWarning("wikisource-archive", `No wikitable on page ${title}: ${err instanceof Error ? err.message : err}`, { title });
@@ -111,6 +131,7 @@ export function insertFondRow(
   parsed: ParsedWikiTable,
   fond: string,
   name: string,
+  linkPrefix: string,
   title?: string
 ): string {
   const newRow = buildMappedRow(
@@ -118,7 +139,7 @@ export function insertFondRow(
     { title: name, dates: "", pages: "" },
     parsed.headers,
     ARCHIVE_FIELD_ALIASES,
-    "../",
+    linkPrefix,
     title ? (info) => logMissingArchiveField(title, info) : undefined
   );
   return insertRow(parsed, fond, newRow, fondCompare);
@@ -139,7 +160,8 @@ export function buildOrUpdateArchiveContent(
   }
   const parsed = parseArchivePage(existingContent, params);
   const title = getArchivePageTitle(params.archiveAbbr, params.fond);
-  return insertFondRow(parsed, params.fond, params.fondName, title);
+  const linkPrefix = fondLinkPrefix(params.archiveAbbr);
+  return insertFondRow(parsed, params.fond, params.fondName, linkPrefix, title);
 }
 
 export interface UpdateArchivePageParams extends ArchivePageParams {

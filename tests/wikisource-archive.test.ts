@@ -66,16 +66,21 @@ describe("fondCompare", () => {
 });
 
 describe("buildFondRow", () => {
-  it("builds a row with ../  links", () => {
-    const row = buildFondRow("Р-34", "Назва фонду", 4);
+  it("builds a row with ../ sibling links", () => {
+    const row = buildFondRow("Р-34", "Назва фонду", 4, "../");
     expect(row).toBe("|-\n|[[../Р-34/]]||Назва фонду||||");
+  });
+
+  it("builds a row with / child links", () => {
+    const row = buildFondRow("159", "Назва фонду", 4, "/");
+    expect(row).toBe("|-\n|[[/159/]]||Назва фонду||||");
   });
 });
 
 describe("buildNewArchivePage", () => {
   const baseParams = {
-    archiveAbbr: "ЦДІАК",
-    archiveName: "Центральний архів",
+    archiveAbbr: "ДАХмО",
+    archiveName: "Державний архів",
     fond: "Р-1",
     fondName: "Назва фонду",
   };
@@ -83,7 +88,7 @@ describe("buildNewArchivePage", () => {
   it("creates page with single row when fond numeric part is 1", () => {
     const result = buildNewArchivePage(baseParams);
     expect(result).toContain("{{заголовок");
-    expect(result).toContain("| секція = Центральний архів");
+    expect(result).toContain("| секція = Державний архів");
     expect(result).toContain("== Фонди ==");
     expect(result).toContain("[[../Р-1/]]||Назва фонду");
     // Should not have a second row
@@ -112,6 +117,17 @@ describe("buildNewArchivePage", () => {
     expect(result).toContain("[[../1/]]||||||");
     expect(result).toContain("[[../5/]]");
   });
+
+  it("uses / child links for root archives", () => {
+    const result = buildNewArchivePage({
+      ...baseParams,
+      archiveAbbr: "ЦДІАЛ",
+      fond: "159",
+    });
+    expect(result).toContain("[[/1/]]||||||");
+    expect(result).toContain("[[/159/]]||Назва фонду");
+    expect(result).not.toContain("[[../159/]]");
+  });
 });
 
 describe("parseArchivePage", () => {
@@ -128,8 +144,8 @@ ${rows}
   };
 
   const params = {
-    archiveAbbr: "ЦДІАК",
-    archiveName: "Центральний архів",
+    archiveAbbr: "ДАХмО",
+    archiveName: "Державний архів",
     fond: "Р-1",
     fondName: "Назва фонду",
   } as const;
@@ -149,6 +165,13 @@ ${rows}
     const parsed = parseArchivePage(content, params);
     expect(parsed.rows).toHaveLength(3);
     expect(parsed.rows.map((r) => r.id)).toEqual(["Р-1", "Р-3", "Р-5"]);
+  });
+
+  it("parses / child links for root archives", () => {
+    const content = makePage("|-\n|[[/159/]]||Назва||2000||50");
+    const parsed = parseArchivePage(content, { ...params, archiveAbbr: "ЦДІАЛ" });
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0].id).toBe("159");
   });
 
   it("parses empty table", () => {
@@ -181,7 +204,7 @@ describe("insertFondRow", () => {
 
   it("inserts in correct position (middle)", () => {
     const parsed = makeParsed([makeRow("Р-1"), makeRow("Р-5"), makeRow("Р-10")]);
-    const result = insertFondRow(parsed, "Р-3", "New");
+    const result = insertFondRow(parsed, "Р-3", "New", "../");
     const idx1 = result.indexOf("[[../Р-1/]]");
     const idx3 = result.indexOf("[[../Р-3/]]");
     const idx5 = result.indexOf("[[../Р-5/]]");
@@ -191,7 +214,7 @@ describe("insertFondRow", () => {
 
   it("inserts at beginning", () => {
     const parsed = makeParsed([makeRow("Р-5"), makeRow("Р-10")]);
-    const result = insertFondRow(parsed, "Р-2", "New");
+    const result = insertFondRow(parsed, "Р-2", "New", "../");
     const idx2 = result.indexOf("[[../Р-2/]]");
     const idx5 = result.indexOf("[[../Р-5/]]");
     expect(idx2).toBeLessThan(idx5);
@@ -199,7 +222,7 @@ describe("insertFondRow", () => {
 
   it("inserts at end", () => {
     const parsed = makeParsed([makeRow("Р-1"), makeRow("Р-3")]);
-    const result = insertFondRow(parsed, "Р-10", "New");
+    const result = insertFondRow(parsed, "Р-10", "New", "../");
     const idx3 = result.indexOf("[[../Р-3/]]");
     const idx10 = result.indexOf("[[../Р-10/]]");
     expect(idx10).toBeGreaterThan(idx3);
@@ -207,14 +230,14 @@ describe("insertFondRow", () => {
 
   it("returns unchanged when fond already exists", () => {
     const parsed = makeParsed([makeRow("Р-1"), makeRow("Р-5")]);
-    const result = insertFondRow(parsed, "Р-5", "Different");
+    const result = insertFondRow(parsed, "Р-5", "Different", "../");
     expect(result).not.toContain("Different");
     expect(result).toContain("NameР-5");
   });
 
   it("inserts into empty table", () => {
     const parsed = makeParsed([]);
-    const result = insertFondRow(parsed, "Р-1", "First");
+    const result = insertFondRow(parsed, "Р-1", "First", "../");
     expect(result).toContain("[[../Р-1/]]||First");
   });
 
@@ -229,15 +252,29 @@ describe("insertFondRow", () => {
       columnCount: 4,
     };
 
-    const result = insertFondRow(parsed, "Р-5", "New");
+    const result = insertFondRow(parsed, "Р-5", "New", "../");
     expect(result).toContain("[[../Р-5/]]||New||||");
+  });
+
+  it("inserts a row with / child links for root archives", () => {
+    const parsed = makeParsed([
+      { raw: "|-\n|[[/100/]]||Name100||||", id: "100" },
+      { raw: "|-\n|[[/200/]]||Name200||||", id: "200" },
+    ]);
+    const result = insertFondRow(parsed, "159", "New", "/");
+    const idx100 = result.indexOf("[[/100/]]");
+    const idx159 = result.indexOf("[[/159/]]");
+    const idx200 = result.indexOf("[[/200/]]");
+    expect(idx159).toBeGreaterThan(idx100);
+    expect(idx159).toBeLessThan(idx200);
+    expect(result).toContain("[[/159/]]||New");
   });
 });
 
 describe("buildOrUpdateArchiveContent", () => {
   const params = {
-    archiveAbbr: "ЦДІАК",
-    archiveName: "Центральний архів",
+    archiveAbbr: "ДАХмО",
+    archiveName: "Державний архів",
     fond: "Р-1",
     fondName: "Назва фонду",
   };
@@ -277,8 +314,8 @@ describe("buildOrUpdateArchiveContent", () => {
 
     expect(logWarning).toHaveBeenCalledWith(
       "wikisource-archive",
-      expect.stringContaining("Архів:ЦДІАК"),
-      expect.objectContaining({ title: "Архів:ЦДІАК" })
+      expect.stringContaining("Архів:ДАХмО/Р"),
+      expect.objectContaining({ title: "Архів:ДАХмО/Р" })
     );
     expect(result).toContain(existing);
     expect(result).toContain("!№||Назва фонду||Крайні дати||Справ");
@@ -308,7 +345,7 @@ describe("buildOrUpdateArchiveContent", () => {
       "wikisource-archive",
       expect.stringContaining('field "title"'),
       expect.objectContaining({
-        title: "Архів:ЦДІАК",
+        title: "Архів:ДАХмО/Р",
         field: "title",
         value: "Новий фонд",
         tableHeaders: ["№", "Місцевість", "Крайні дати", "Справ"],
@@ -316,5 +353,36 @@ describe("buildOrUpdateArchiveContent", () => {
     );
     expect(result).toContain("[[../Р-5/]]");
     expect(result).not.toContain("[[../Р-5/]]||Новий фонд");
+  });
+
+  it("inserts / child links into a root archive page (ЦДІАЛ)", () => {
+    const existing = `{{заголовок
+ | назва = [[../]]
+}}
+
+== Фонди ==
+{| class="wikitable sortable"
+!№||Назва фонду||Крайні дати||Справ
+|-
+|[[/100/]]||Existing||||
+|-
+|[[/200/]]||Other||||
+|}`;
+
+    const result = buildOrUpdateArchiveContent(existing, {
+      archiveAbbr: "ЦДІАЛ",
+      archiveName: "Центральний архів",
+      fond: "159",
+      fondName: "Галицька фінансова прокуратура, м. Львів",
+    });
+
+    expect(result).toContain("[[/159/]]||Галицька фінансова прокуратура, м. Львів");
+    expect(result).not.toContain("[[../159/]]");
+    // inserted between 100 and 200
+    const idx100 = result.indexOf("[[/100/]]");
+    const idx159 = result.indexOf("[[/159/]]");
+    const idx200 = result.indexOf("[[/200/]]");
+    expect(idx159).toBeGreaterThan(idx100);
+    expect(idx159).toBeLessThan(idx200);
   });
 });
