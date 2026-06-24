@@ -4,6 +4,7 @@ import pLimit from "p-limit";
 import { makeEntry, type FileEntry } from "../types";
 import { isEntryValid } from "../validation";
 import { uploadFile, callWikisourcePublish } from "../upload";
+import { captureEntryUploadFailure } from "../uploadFailureSentry";
 import {
   cleanupStaleTmpFiles,
   convertZipToPdf,
@@ -357,6 +358,7 @@ export function useUploadWizard(directUploadEnabled: boolean) {
       accessToken = refreshed?.accessToken;
       if (!accessToken) {
         window.dispatchEvent(new CustomEvent("API_FETCH_AUTH_ERROR"));
+        captureEntryUploadFailure(new Error("Сесія завершилась"), entry, "direct", "session");
         updateEntry(index, { status: "error", errorMessage: "Сесія завершилась" });
         return;
       }

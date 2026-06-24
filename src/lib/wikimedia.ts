@@ -183,6 +183,34 @@ function getUploadWarnings(warnings: unknown): Record<string, unknown> | undefin
   return Object.fromEntries(entries);
 }
 
+function normalizeApiError(error: unknown): Record<string, unknown> | string | undefined {
+  if (!error) return undefined;
+  if (typeof error === "string") return error;
+  if (typeof error !== "object") return String(error);
+
+  const record = error as Record<string, unknown>;
+  const normalized: Record<string, unknown> = {};
+  if (typeof record.code === "string") normalized.code = record.code;
+  if (typeof record.info === "string") normalized.info = record.info;
+  if (typeof record["*"] === "string") normalized.details = record["*"];
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+function logWikiApiError(
+  tag: string,
+  details: {
+    status?: number;
+    error?: unknown;
+    context?: Record<string, unknown>;
+  }
+): void {
+  console.error(`[${tag}] API error`, {
+    ...(details.status !== undefined ? { status: details.status } : {}),
+    ...(details.error !== undefined ? { error: normalizeApiError(details.error) } : {}),
+    ...details.context,
+  });
+}
+
 class WikiClient {
   constructor(protected apiUrl: string, protected baseUrl: string) {}
 
@@ -304,6 +332,13 @@ class WikicommonsClient extends WikiClient {
     });
 
     if (!res.ok) {
+      logWikiApiError("uploadFile", {
+        status: res.status,
+        context: {
+          filename: params.filename,
+          fileSize: params.file.size,
+        },
+      });
       throw new Error(`Upload failed: ${res.status}`);
     }
 
@@ -312,7 +347,13 @@ class WikicommonsClient extends WikiClient {
     throwOnUploadWarnings(data.upload?.warnings);
 
     if (data.error) {
-      console.error("[uploadFile] API error", data.error);
+      logWikiApiError("uploadFile", {
+        error: data.error,
+        context: {
+          filename: params.filename,
+          fileSize: params.file.size,
+        },
+      });
       throw new Error(data.error.info ?? "Upload error");
     }
 
@@ -342,6 +383,16 @@ class WikicommonsClient extends WikiClient {
     });
 
     if (!res.ok) {
+      logWikiApiError("uploadFirstChunk", {
+        status: res.status,
+        context: {
+          filename: params.filename,
+          fileSize: params.fileSize,
+          requestedOffset: 0,
+          useAsync: !!params.useAsync,
+          useCrossOrigin: !!params.useCrossOrigin,
+        },
+      });
       throw new Error(`Chunk upload failed: ${res.status}`);
     }
 
@@ -361,7 +412,20 @@ class WikicommonsClient extends WikiClient {
 //       logInfo("wikicommons/upload-first-chunk", context);
 //     }
     if (data.error) {
-      console.error("[uploadFirstChunk] API error", data.error);
+      logWikiApiError("uploadFirstChunk", {
+        error: data.error,
+        context: {
+          filename: params.filename,
+          fileSize: params.fileSize,
+          requestedOffset: 0,
+          returnedOffset: data.upload?.offset as number | undefined,
+          filekey: data.upload?.filekey as string | undefined,
+          result: data.upload?.result as string | undefined,
+          stage: data.upload?.stage as string | undefined,
+          useAsync: !!params.useAsync,
+          useCrossOrigin: !!params.useCrossOrigin,
+        },
+      });
       throw new Error(data.error.info ?? "Chunk upload error");
     }
 
@@ -397,6 +461,17 @@ class WikicommonsClient extends WikiClient {
     });
 
     if (!res.ok) {
+      logWikiApiError("uploadNextChunk", {
+        status: res.status,
+        context: {
+          filename: params.filename,
+          fileSize: params.fileSize,
+          requestedOffset: params.offset,
+          filekey: params.filekey,
+          useAsync: !!params.useAsync,
+          useCrossOrigin: !!params.useCrossOrigin,
+        },
+      });
       throw new Error(`Chunk upload failed: ${res.status}`);
     }
 
@@ -416,7 +491,20 @@ class WikicommonsClient extends WikiClient {
 //       logInfo("wikicommons/upload-next-chunk", context);
 //     }
     if (data.error) {
-      console.error("[uploadNextChunk] API error", data.error);
+      logWikiApiError("uploadNextChunk", {
+        error: data.error,
+        context: {
+          filename: params.filename,
+          fileSize: params.fileSize,
+          requestedOffset: params.offset,
+          returnedOffset: data.upload?.offset as number | undefined,
+          filekey: data.upload?.filekey as string | undefined,
+          result: data.upload?.result as string | undefined,
+          stage: data.upload?.stage as string | undefined,
+          useAsync: !!params.useAsync,
+          useCrossOrigin: !!params.useCrossOrigin,
+        },
+      });
       throw new Error(data.error.info ?? "Chunk upload error");
     }
 
@@ -446,6 +534,13 @@ class WikicommonsClient extends WikiClient {
     });
 
     if (!res.ok) {
+      logWikiApiError("checkUploadStatus", {
+        status: res.status,
+        context: {
+          filekey: params.filekey,
+          useCrossOrigin: !!params.useCrossOrigin,
+        },
+      });
       const err: Error & { httpStatus?: number } = new Error(
         `Check upload status failed: ${res.status}`
       );
@@ -455,7 +550,16 @@ class WikicommonsClient extends WikiClient {
 
     const data = await res.json();
     if (data.error) {
-      console.error("[checkUploadStatus] API error", data.error);
+      logWikiApiError("checkUploadStatus", {
+        error: data.error,
+        context: {
+          filekey: params.filekey,
+          returnedOffset: data.upload?.offset as number | undefined,
+          result: data.upload?.result as string | undefined,
+          stage: data.upload?.stage as string | undefined,
+          useCrossOrigin: !!params.useCrossOrigin,
+        },
+      });
       throw new Error(data.error.info ?? "Check upload status error");
     }
 
@@ -544,6 +648,15 @@ class WikicommonsClient extends WikiClient {
     });
 
     if (!res.ok) {
+      logWikiApiError("commitChunkedUpload", {
+        status: res.status,
+        context: {
+          filename: params.filename,
+          filekey: params.filekey,
+          useAsync: !!params.useAsync,
+          useCrossOrigin: !!params.useCrossOrigin,
+        },
+      });
       throw new Error(`Commit upload failed: ${res.status}`);
     }
 
@@ -552,7 +665,17 @@ class WikicommonsClient extends WikiClient {
     throwOnUploadWarnings(data.upload?.warnings);
 
     if (data.error) {
-      console.error("[commitChunkedUpload] API error", data.error);
+      logWikiApiError("commitChunkedUpload", {
+        error: data.error,
+        context: {
+          filename: params.filename,
+          filekey: params.filekey,
+          result: data.upload?.result as string | undefined,
+          stage: data.upload?.stage as string | undefined,
+          useAsync: !!params.useAsync,
+          useCrossOrigin: !!params.useCrossOrigin,
+        },
+      });
       const code: string = data.error.code ?? "";
       // captcha (ConfirmEdit) and abuse filter 281 both gate not-yet-autoconfirmed
       // accounts and can't be satisfied from here — surface a clean,
@@ -679,7 +802,14 @@ class WikisourceClient extends WikiClient {
       if (data.error.code === "editconflict") {
         throw new EditConflictError(data.error.info ?? "editconflict");
       }
-      console.error("[editPage] API error", data.error);
+      logWikiApiError("editPage", {
+        error: data.error,
+        context: {
+          title: params.title,
+          hasBasetimestamp: !!params.basetimestamp,
+          hasStarttimestamp: !!params.starttimestamp,
+        },
+      });
       throw new Error(data.error.info ?? "Wikisource edit error");
     }
 

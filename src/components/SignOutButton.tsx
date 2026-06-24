@@ -1,5 +1,6 @@
 "use client";
 import { signOutAction } from "@/actions/auth";
+import * as Sentry from "@sentry/nextjs";
 import { useNavigationGuard } from "@/context/NavigationGuardContext";
 
 export default function SignOutButton({ className }: { className?: string }) {
@@ -8,7 +9,10 @@ export default function SignOutButton({ className }: { className?: string }) {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (isGuarded() && !window.confirm("Незбережені дані будуть втрачені. Виходити?")) {
       e.preventDefault();
+      return;
     }
+
+    Sentry.setUser(null);
   }
 
   return (
