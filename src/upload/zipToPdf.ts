@@ -110,12 +110,73 @@ async function getOpfsRoot(): Promise<FileSystemDirectoryHandle> {
   return await navigator.storage.getDirectory();
 }
 
+// OPFS is shared across all tabs of the same origin, so cleanupStaleTmpFiles
+// (run when any wizard mounts) must not delete a tmp file another tab is still
+// uploading. We coordinate via the Web Locks API — also origin-scoped: each
+// tab holds an exclusive lock for the lifetime of each tmp file it owns, and
+// cleanup probes with { ifAvailable: true } to skip files still locked
+// elsewhere. Locks auto-release when a tab is closed, so files left by a
+// crashed session are correctly seen as orphaned and removed.
+// A lock grant is asynchronous, but releaseTmpFileLock may run before the grant
+// callback fires. So the entry is registered synchronously at acquire time and
+// carries a `released` flag: if release wins the race, the grant callback sees
+// it and lets go immediately instead of leaking the lock until tab close.
+type LockEntry = { resolve?: () => void; released: boolean };
+const lockReleasers = new Map<string, LockEntry>();
+
+function lockNameFor(opfsName: string): string {
+  return `ziptmp-lock:${opfsName}`;
+}
+
+// Exported for tests — the cross-tab primitives behind cleanupStaleTmpFiles.
+export function acquireTmpFileLock(opfsName: string): void {
+  if (!navigator.locks?.request) return;
+  const name = lockNameFor(opfsName);
+  const entry: LockEntry = { released: false };
+  lockReleasers.set(name, entry);
+  navigator.locks
+    .request(
+      name,
+      () =>
+        new Promise<void>((resolve) => {
+          // Release may have already happened before the lock was granted.
+          if (entry.released) resolve();
+          else entry.resolve = resolve;
+        }),
+    )
+    .catch(() => undefined)
+    .finally(() => {
+      // Forget the entry once the lock is gone, unless a later re-acquire of
+      // the same name has already replaced it.
+      if (lockReleasers.get(name) === entry) lockReleasers.delete(name);
+    });
+}
+
+export function releaseTmpFileLock(opfsName: string): void {
+  const entry = lockReleasers.get(lockNameFor(opfsName));
+  if (!entry) return;
+  entry.released = true;
+  entry.resolve?.();
+}
+
+// True only if no context currently holds this file's lock (safe to delete).
+// When Web Locks is unavailable we stay conservative and report "locked" so
+// cleanup never deletes a file that might be in use by another tab.
+async function isTmpFileUnlocked(opfsName: string): Promise<boolean> {
+  if (!navigator.locks?.request) return false;
+  return await navigator.locks.request(
+    lockNameFor(opfsName),
+    { ifAvailable: true },
+    (lock) => lock !== null,
+  );
+}
+
 export async function cleanupStaleTmpFiles(): Promise<void> {
   try {
     const root = await getOpfsRoot();
     // @ts-expect-error — iterator API not yet in TS lib
     for await (const [name] of root.entries() as AsyncIterable<[string, FileSystemHandle]>) {
-      if (name.startsWith(TMP_PREFIX)) {
+      if (name.startsWith(TMP_PREFIX) && (await isTmpFileUnlocked(name))) {
         await root.removeEntry(name).catch(() => undefined);
       }
     }
@@ -125,6 +186,7 @@ export async function cleanupStaleTmpFiles(): Promise<void> {
 }
 
 export async function removeOpfsFile(name: string): Promise<void> {
+  releaseTmpFileLock(name);
   try {
     const root = await getOpfsRoot();
     await root.removeEntry(name);
@@ -259,6 +321,9 @@ export async function convertZipToPdf(
 
   const root = await getOpfsRoot();
   const opfsName = `${TMP_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`;
+  // Lock the tmp file before any other tab can reach it via cleanup. Held
+  // until removeOpfsFile (success path) or the catch below (failure path).
+  acquireTmpFileLock(opfsName);
   const handle = await root.getFileHandle(opfsName, { create: true });
   const writer = createOpfsWriter(await handle.createWritable());
 
@@ -293,6 +358,7 @@ export async function convertZipToPdf(
     };
   } catch (err) {
     await reader.close().catch(() => undefined);
+    releaseTmpFileLock(opfsName);
     await root.removeEntry(opfsName).catch(() => undefined);
     throw err;
   }

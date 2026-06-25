@@ -80,10 +80,17 @@ export function useUploadWizard(directUploadEnabled: boolean) {
   // the wizard unmounts.
   useEffect(() => {
     const previewControllers = previewControllersRef.current;
+    const opfsNames = opfsNamesRef.current;
     return () => {
       for (const c of previewControllers.values()) c.abort();
       previewControllers.clear();
       for (const p of zipPreviewsRef.current.values()) revokeThumbUrls(p.thumbs);
+      // Drop any tmp PDFs this tab still owns (e.g. left in a duplicate/error
+      // state, or abandoned by navigating away). Without this the file's lock
+      // outlives the wizard and a future cleanupStaleTmpFiles() — also gated on
+      // the lock — would skip it, leaking the orphan until the tab closes.
+      for (const opfsName of opfsNames.values()) removeOpfsFile(opfsName);
+      opfsNames.clear();
     };
   }, []);
 
