@@ -18,8 +18,8 @@ export default function WikisourceNameField({
     : "";
 
   return (
-    <p className="text-sm text-zinc-500">
-      <span className="font-medium text-zinc-600">{label}:</span>{" "}
+    <p className="flex items-baseline gap-1 text-sm text-zinc-500">
+      <span className="shrink-0 font-medium text-zinc-600">{label}:</span>
       {state.loading ? (
         "Завантаження…"
       ) : state.exists && wikisourceUrl ? (
@@ -27,7 +27,8 @@ export default function WikisourceNameField({
           href={wikisourceUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-600 hover:underline"
+          title={state.fetched || "Без назви"}
+          className="min-w-0 truncate text-blue-600 hover:underline"
         >
           {state.fetched || "Без назви"}
         </a>

@@ -40,5 +40,5 @@ body {
 }
 
 .page-content {
-  @apply mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 sm:px-16;
+  @apply mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 sm:px-16;
 }

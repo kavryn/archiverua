@@ -21,7 +21,10 @@ export default function ArchiveCombobox({ value, onChange, disabled }: Props) {
       <div className="relative">
         <ComboboxInput
           displayValue={(archive: Archive | null) => archive?.name ?? ""}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (e.target.value === "" && value !== null) onChange(null);
+          }}
           placeholder="Оберіть архів..."
           className="input pr-8"
         />
