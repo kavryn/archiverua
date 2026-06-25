@@ -124,4 +124,73 @@ describe("validateZip", () => {
     const zip = await makeZip({});
     await expect(validateZip(zip)).rejects.toBeInstanceOf(ZipValidationError);
   });
+
+  it("reports an unsupported-format rejection with examples", async () => {
+    const zip = await makeZip({
+      "page1.png": PNG_1x1,
+      "IMG_1.HEIC": new TextEncoder().encode("x"),
+    });
+    const err = await validateZip(zip).catch((e) => e);
+    expect(err).toBeInstanceOf(ZipValidationError);
+    expect(err.message).toContain("Не вдалося додати 1 файл із ZIP-архіву");
+    expect(err.message).toContain("лише формати JPEG та PNG");
+    expect(err.message).toContain("Відхилено: IMG_1.HEIC");
+  });
+
+  it("reports a nested-folder rejection with full paths", async () => {
+    const zip = await makeZip({
+      "page1.png": PNG_1x1,
+      "a/page2.png": PNG_1x1,
+      "b/page3.png": PNG_1x1,
+    });
+    const err = await validateZip(zip).catch((e) => e);
+    expect(err).toBeInstanceOf(ZipValidationError);
+    expect(err.message).toContain("Не вдалося додати 2 файли із ZIP-архіву");
+    expect(err.message).toContain("вкладених підпапок");
+    // Nested examples keep the full path, not just the basename.
+    expect(err.message).toContain("a/page2.png");
+    expect(err.message).toContain("b/page3.png");
+  });
+});
+
+describe("ZipValidationError message", () => {
+  const badFor = (names: string[]) => new ZipValidationError(names, false, [], names);
+
+  it("uses Ukrainian plural agreement for файл", () => {
+    expect(badFor(["a.x"]).message).toContain("1 файл із");
+    expect(badFor(["a.x", "b.x", "c.x"]).message).toContain("3 файли із");
+    expect(badFor(Array.from({ length: 5 }, (_, i) => `f${i}.x`)).message).toContain(
+      "5 файлів із",
+    );
+    expect(badFor(Array.from({ length: 11 }, (_, i) => `f${i}.x`)).message).toContain(
+      "11 файлів із",
+    );
+    expect(badFor(Array.from({ length: 21 }, (_, i) => `f${i}.x`)).message).toContain(
+      "21 файл із",
+    );
+  });
+
+  it("collapses long lists to a few examples plus a count", () => {
+    const names = Array.from({ length: 596 }, (_, i) => `IMG_${i}.HEIC`);
+    const msg = badFor(names).message;
+    expect(msg).toContain("Відхилено: IMG_0.HEIC, IMG_1.HEIC, IMG_2.HEIC, IMG_3.HEIC та ще 592.");
+  });
+
+  it("replaces garbled non-UTF-8 filename runs with ?", () => {
+    const msg = new ZipValidationError(
+      ["╤ä╨▓╤û╨░/IMG_1.HEIC"],
+      false,
+      ["╤ä╨▓╤û╨░/IMG_1.HEIC"],
+      [],
+    ).message;
+    // Nested examples show the full path; box-drawing runs collapse to "?".
+    expect(msg).not.toContain("╤");
+    expect(msg).not.toContain("╨");
+    expect(msg).toContain("?");
+    expect(msg).toContain("/IMG_1.HEIC");
+  });
+
+  it("reports an empty archive", () => {
+    expect(new ZipValidationError([], true).message).toContain("порожній");
+  });
 });

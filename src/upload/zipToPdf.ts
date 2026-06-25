@@ -19,22 +19,85 @@ export type ZipConversionProgress = {
   currentName: string;
 };
 
+// How many example names to show before collapsing the rest into "та ще N".
+const INVALID_EXAMPLE_LIMIT = 4;
+
+function basenameOf(name: string): string {
+  return name.split(/[\\/]/).pop() || name;
+}
+
+// Ukrainian plural for "файл": 1 → файл, 2–4 → файли, 5+/11–14 → файлів.
+function fileWord(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "файл";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return "файли";
+  return "файлів";
+}
+
+// ZIP entries whose filenames lack the UTF-8 flag get decoded with a legacy
+// codepage, so non-Latin names (e.g. Cyrillic folders) come through as garbled
+// runs like "╤ä╨▓╤û╨░". We can't reliably recover the original, so collapse any
+// run of characters that aren't plausible filename glyphs into a single "?".
+function sanitizeForDisplay(name: string): string {
+  return name.replace(/[^\p{L}\p{N}\s._()[\]{}'`!&+,/\\-]+/gu, "?");
+}
+
+function listExamples(names: string[], fullPath = false): string {
+  const shown = names
+    .slice(0, INVALID_EXAMPLE_LIMIT)
+    .map((n) => sanitizeForDisplay(fullPath ? n : basenameOf(n)));
+  const rest = names.length - shown.length;
+  return rest > 0 ? `${shown.join(", ")} та ще ${rest}` : shown.join(", ");
+}
+
+function buildValidationMessage(
+  emptyArchive: boolean,
+  nested: string[],
+  badFormat: string[],
+): string {
+  if (emptyArchive) {
+    return "ZIP-архів порожній або не містить зображень.";
+  }
+
+  const parts: string[] = [];
+
+  if (badFormat.length > 0) {
+    parts.push(
+      `Не вдалося додати ${badFormat.length} ${fileWord(badFormat.length)} із ZIP-архіву — підтримуються лише формати JPEG та PNG. ` +
+        `Відхилено: ${listExamples(badFormat)}.`,
+    );
+  }
+
+  if (nested.length > 0) {
+    parts.push(
+      `Не вдалося додати ${nested.length} ${fileWord(nested.length)} із ZIP-архіву — усі зображення мають лежати ` +
+        `в одній папці (або в корені архіву), без вкладених підпапок. ` +
+        `Відхилено: ${listExamples(nested, true)}.`,
+    );
+  }
+
+  return parts.join("\n\n");
+}
+
 export class ZipValidationError extends Error {
   constructor(
     public readonly invalidEntries: string[],
     public readonly emptyArchive: boolean,
+    nested: string[] = [],
+    badFormat: string[] = invalidEntries,
   ) {
-    super(
-      emptyArchive
-        ? "ZIP-архів порожній"
-        : `ZIP містить файли, що не є JPEG/PNG, або вкладені папки: ${invalidEntries.join(", ")}`,
-    );
+    super(buildValidationMessage(emptyArchive, nested, badFormat));
     this.name = "ZipValidationError";
   }
 }
 
+function hasNestedPath(name: string): boolean {
+  return name.includes("/") || name.includes("\\");
+}
+
 function isAcceptableImageName(name: string): boolean {
-  if (name.includes("/") || name.includes("\\")) return false;
+  if (hasNestedPath(name)) return false;
   const lower = name.toLowerCase();
   return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png");
 }
@@ -218,23 +281,34 @@ export async function validateZip(
   const prefix = findSingleFolderPrefix(nonJunk.map((e) => e.filename));
 
   const entries: { entry: Entry; effectiveName: string }[] = [];
-  const invalid: string[] = [];
+  const nested: string[] = [];
+  const badFormat: string[] = [];
 
   for (const entry of nonJunk) {
     const effectiveName = prefix && entry.filename.startsWith(prefix)
       ? entry.filename.slice(prefix.length)
       : entry.filename;
     if (effectiveName === "") continue; // the folder entry itself
+    if (hasNestedPath(effectiveName)) {
+      nested.push(entry.filename);
+      continue;
+    }
     if (!isAcceptableImageName(effectiveName)) {
-      invalid.push(entry.filename);
+      badFormat.push(entry.filename);
       continue;
     }
     entries.push({ entry, effectiveName });
   }
 
+  const invalid = [...badFormat, ...nested];
   if (invalid.length > 0 || entries.length === 0) {
     await reader.close().catch(() => undefined);
-    throw new ZipValidationError(invalid, entries.length === 0 && invalid.length === 0);
+    throw new ZipValidationError(
+      invalid,
+      entries.length === 0 && invalid.length === 0,
+      nested,
+      badFormat,
+    );
   }
 
   entries.sort((a, b) => compareEntriesNaturally(a.effectiveName, b.effectiveName));
