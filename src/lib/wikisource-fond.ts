@@ -23,8 +23,8 @@ export interface FondPageParams {
 
 const FOND_FIELD_ALIASES: RowFieldAliases = {
   id: ["№", "Опис"],
-  title: ["Анотація", "Назва"],
-  dates: ["Крайні дати", "Рік", "Роки", "Дата", "Дати"],
+  title: ["Назва", "Анотація"],
+  dates: ["Крайні дати", "Крайні роки", "Рік", "Роки", "Дата", "Дати"],
   pages: ["Справ"],
 };
 

@@ -142,6 +142,27 @@ describe("parseWikiTable", () => {
     expect(parsed.after).toBe("\nafter");
   });
 
+  it("does not drop rows whose |- separator has trailing characters", () => {
+    // Regression: a row separator like "|-   �" or "|- style=..." used to
+    // be skipped by the exact "|-" check, silently dropping the row below it.
+    const content = makeTable(
+      "!A!!B",
+      "|-\n|[[/1/]]||A\n|-   �\n|[[/3/]]||B\n|- style=\"x\"\n|[[/5/]]||C"
+    );
+    const parsed = parseWikiTable(content);
+    expect(parsed.rows).toHaveLength(3);
+    expect(parsed.rows.map((r) => r.id)).toEqual(["1", "3", "5"]);
+  });
+
+  it("round-trips a table with malformed |- separators unchanged", () => {
+    const content = makeTable(
+      "!A!!B",
+      "|-\n|[[/1/]]||A\n|-   �\n|[[/3/]]||B"
+    );
+    const parsed = parseWikiTable(content);
+    expect(rebuildPage(parsed)).toBe(content);
+  });
+
   it("throws when no wikitable found", () => {
     expect(() => parseWikiTable("just some text")).toThrow(
       "No wikitable found"
@@ -365,6 +386,61 @@ describe("buildMappedRow", () => {
       aliases: ["Сторінки"],
       headers: ["№", "Назва", "Роки"],
     });
+  });
+
+  it("fills only the highest-priority column when synonyms both appear", () => {
+    const aliasesWithSynonyms = {
+      id: ["№"],
+      title: ["Назва", "Анотація"],
+      dates: ["Роки"],
+    } as const;
+
+    const row = buildMappedRow(
+      "5",
+      { title: "Назва справи", dates: "1920-1930" },
+      ["№", "Назва", "Анотація", "Роки"],
+      aliasesWithSynonyms
+    );
+
+    // "Назва" (priority 0) gets the value; "Анотація" (priority 1) stays empty.
+    expect(row).toBe("|-\n|[[/5/]]||Назва справи||||1920-1930");
+  });
+
+  it("uses synonym priority order regardless of column position", () => {
+    const aliasesWithSynonyms = {
+      id: ["№"],
+      title: ["Назва", "Анотація"],
+      dates: ["Роки"],
+    } as const;
+
+    const row = buildMappedRow(
+      "5",
+      { title: "Назва справи", dates: "1920-1930" },
+      ["№", "Анотація", "Назва", "Роки"],
+      aliasesWithSynonyms
+    );
+
+    // Even though "Анотація" comes first, "Назва" (priority 0) wins.
+    expect(row).toBe("|-\n|[[/5/]]||||Назва справи||1920-1930");
+  });
+
+  it("does not report a missing field when a synonym column matched", () => {
+    const aliasesWithSynonyms = {
+      id: ["№"],
+      title: ["Назва", "Анотація"],
+    } as const;
+    const onMissingField = vi.fn();
+
+    buildMappedRow(
+      "5",
+      { title: "Назва справи" },
+      ["№", "Анотація"],
+      aliasesWithSynonyms,
+      "/",
+      onMissingField
+    );
+
+    expect(onMissingField).not.toHaveBeenCalled();
   });
 });
 

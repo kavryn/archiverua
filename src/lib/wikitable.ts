@@ -76,7 +76,7 @@ export function parseWikiTable(content: string, options?: ParseOptions): ParsedW
   const rows: ParsedRow[] = [];
   let i = headerLineIdx + 1;
   while (i < lines.length) {
-    if (lines[i] === "|-") {
+    if (lines[i].startsWith("|-")) {
       const rowLines = [lines[i]];
       i++;
       while (i < lines.length && !lines[i].startsWith("|-") && lines[i] !== "|}") {
@@ -120,26 +120,46 @@ export function buildMappedRow(
   linkPrefix = "/",
   onMissingField?: (info: MissingFieldInfo) => void
 ): string {
-  const aliasToField = new Map<string, string>();
+  const aliasToField = new Map<string, { fieldKey: string; priority: number }>();
   for (const [fieldKey, aliases] of Object.entries(fieldAliases)) {
-    for (const alias of aliases) {
-      aliasToField.set(normalizeHeader(alias), fieldKey);
-    }
+    aliases.forEach((alias, priority) => {
+      aliasToField.set(normalizeHeader(alias), { fieldKey, priority });
+    });
   }
 
+  // When several columns map to the same field (e.g. both "Назва" and
+  // "Анотація"), only fill the highest-priority one (lowest alias index);
+  // the rest stay empty so the value is not duplicated across columns.
+  const chosenColumn = new Map<string, { columnIdx: number; priority: number }>();
+  headers.forEach((header, columnIdx) => {
+    const match = aliasToField.get(normalizeHeader(header));
+    if (!match) {
+      return;
+    }
+    const existing = chosenColumn.get(match.fieldKey);
+    if (!existing || match.priority < existing.priority) {
+      chosenColumn.set(match.fieldKey, { columnIdx, priority: match.priority });
+    }
+  });
+
   const matchedFields = new Set<string>();
-  const allCells = headers.map((header) => {
-    const fieldKey = aliasToField.get(normalizeHeader(header));
-    if (!fieldKey) {
+  const allCells = headers.map((header, columnIdx) => {
+    const match = aliasToField.get(normalizeHeader(header));
+    if (!match) {
       return "";
     }
 
-    matchedFields.add(fieldKey);
-    if (fieldKey === "id") {
+    const chosen = chosenColumn.get(match.fieldKey);
+    if (chosen?.columnIdx !== columnIdx) {
+      return "";
+    }
+
+    matchedFields.add(match.fieldKey);
+    if (match.fieldKey === "id") {
       return `[[${linkPrefix}${id}/]]`;
     }
 
-    return values[fieldKey] ?? "";
+    return values[match.fieldKey] ?? "";
   });
 
   if (!matchedFields.has("id") && allCells.length > 0) {
