@@ -382,6 +382,60 @@ export async function buildPdfFromImages(
   }
 }
 
+// The output PDF is always at least the sum of the embedded images: PDFKit
+// stores JPEGs verbatim and re-zlib-compresses PNGs, on top of the PDF
+// structure. So the sum of decompressed image sizes is a safe lower bound to
+// check the browser storage bucket against — we don't try to guess the exact
+// final size, just refuse when even this lower bound won't fit.
+export function estimatePdfSize(
+  entries: { entry: Pick<Entry, "uncompressedSize" | "compressedSize"> }[],
+): number {
+  return entries.reduce(
+    (sum, { entry }) => sum + (entry.uncompressedSize || entry.compressedSize || 0),
+    0,
+  );
+}
+
+function formatBytes(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} ГБ`;
+  return `${Math.round(n / 1024 ** 2)} МБ`;
+}
+
+export class StorageQuotaError extends Error {
+  constructor(
+    public readonly requiredBytes: number,
+    public readonly availableBytes: number,
+  ) {
+    super(
+      `Цей архів завеликий, щоб перетворити його на PDF у браузері — потрібно щонайменше ` +
+        `~${formatBytes(requiredBytes)}, а у сховищі браузера доступно лише ~${formatBytes(availableBytes)}. ` +
+        `Перетворіть ZIP на PDF самостійно за допомогою іншої програми та завантажте готовий PDF.`,
+    );
+    this.name = "StorageQuotaError";
+  }
+}
+
+// Pre-flight: refuse early with a clear message if the origin's storage bucket
+// can't hold the resulting PDF, instead of writing partway and surfacing an
+// opaque QuotaExceededError mid-conversion. Best-effort: when the Storage API
+// or quota figure is unavailable we stay out of the way and let the real write
+// surface any genuine failure.
+export async function ensureStorageForPdf(estimatedBytes: number): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.storage?.estimate) return;
+  let estimate: StorageEstimate;
+  try {
+    estimate = await navigator.storage.estimate();
+  } catch {
+    return;
+  }
+  const quota = estimate.quota ?? 0;
+  if (quota === 0) return;
+  const available = quota - (estimate.usage ?? 0);
+  if (estimatedBytes > available) {
+    throw new StorageQuotaError(estimatedBytes, available);
+  }
+}
+
 export async function convertZipToPdf(
   zipFile: File,
   onProgress: (p: ZipConversionProgress) => void,
@@ -392,6 +446,14 @@ export async function convertZipToPdf(
   const { entries, reader } = await validateZip(zipFile);
   const total = entries.length;
   onProgress({ phase: "validating", currentEntry: 0, totalEntries: total, currentName: "" });
+
+  // Bail out before touching OPFS if the PDF clearly won't fit.
+  try {
+    await ensureStorageForPdf(estimatePdfSize(entries));
+  } catch (err) {
+    await reader.close().catch(() => undefined);
+    throw err;
+  }
 
   const root = await getOpfsRoot();
   const opfsName = `${TMP_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`;

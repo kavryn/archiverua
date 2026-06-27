@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   BlobWriter,
   Uint8ArrayReader,
@@ -6,6 +6,9 @@ import {
 } from "@zip.js/zip.js";
 import {
   compareEntriesNaturally,
+  ensureStorageForPdf,
+  estimatePdfSize,
+  StorageQuotaError,
   validateZip,
   ZipValidationError,
 } from "@/upload/zipToPdf";
@@ -192,5 +195,76 @@ describe("ZipValidationError message", () => {
 
   it("reports an empty archive", () => {
     expect(new ZipValidationError([], true).message).toContain("порожній");
+  });
+});
+
+describe("estimatePdfSize", () => {
+  it("sums the decompressed image sizes", () => {
+    expect(
+      estimatePdfSize([
+        { entry: { uncompressedSize: 1000, compressedSize: 400 } },
+        { entry: { uncompressedSize: 2000, compressedSize: 800 } },
+      ]),
+    ).toBe(3000);
+  });
+
+  it("falls back to compressedSize when the uncompressed size is unknown", () => {
+    expect(
+      estimatePdfSize([{ entry: { uncompressedSize: 0, compressedSize: 500 } }]),
+    ).toBe(500);
+  });
+});
+
+describe("ensureStorageForPdf", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubStorage(estimate: { quota?: number; usage?: number } | null) {
+    vi.stubGlobal("navigator", {
+      storage: estimate === null ? undefined : { estimate: async () => estimate },
+    });
+  }
+
+  it("throws StorageQuotaError when the estimate exceeds available space", async () => {
+    stubStorage({ quota: 1000, usage: 900 }); // 100 free, need 101
+    await expect(ensureStorageForPdf(101)).rejects.toBeInstanceOf(StorageQuotaError);
+  });
+
+  it("passes when the estimate fits in the available space", async () => {
+    stubStorage({ quota: 1000, usage: 900 }); // 100 free, need exactly 100
+    await expect(ensureStorageForPdf(100)).resolves.toBeUndefined();
+  });
+
+  it("is a no-op when the Storage API is unavailable", async () => {
+    stubStorage(null);
+    await expect(ensureStorageForPdf(10 ** 12)).resolves.toBeUndefined();
+  });
+
+  it("is a no-op when the quota figure is unknown", async () => {
+    stubStorage({ usage: 0 });
+    await expect(ensureStorageForPdf(10 ** 12)).resolves.toBeUndefined();
+  });
+
+  it("ignores a failing estimate() rather than blocking conversion", async () => {
+    vi.stubGlobal("navigator", {
+      storage: {
+        estimate: async () => {
+          throw new Error("boom");
+        },
+      },
+    });
+    await expect(ensureStorageForPdf(10 ** 12)).resolves.toBeUndefined();
+  });
+});
+
+describe("StorageQuotaError message", () => {
+  it("names the required and available space and suggests converting elsewhere", () => {
+    const msg = new StorageQuotaError(2 * 1024 ** 3, 500 * 1024 ** 2).message;
+    expect(msg).toBe(
+      "Цей архів завеликий, щоб перетворити його на PDF у браузері — потрібно щонайменше " +
+        "~2.0 ГБ, а у сховищі браузера доступно лише ~500 МБ. " +
+        "Перетворіть ZIP на PDF самостійно за допомогою іншої програми та завантажте готовий PDF.",
+    );
   });
 });
