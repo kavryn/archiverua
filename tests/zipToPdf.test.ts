@@ -11,6 +11,7 @@ import {
   mapConversionError,
   StorageFullError,
   StorageQuotaError,
+  tmpFileAgeMs,
   validateZip,
   ZipValidationError,
 } from "@/upload/zipToPdf";
@@ -257,6 +258,26 @@ describe("ensureStorageForPdf", () => {
       },
     });
     await expect(ensureStorageForPdf(10 ** 12)).resolves.toBeUndefined();
+  });
+});
+
+describe("tmpFileAgeMs", () => {
+  it("derives the age from the timestamp embedded in the name", () => {
+    const now = 1_000_000;
+    expect(tmpFileAgeMs("ziptmp-400000-ab12cd.pdf", now)).toBe(600_000);
+  });
+
+  it("handles names without a random suffix", () => {
+    expect(tmpFileAgeMs("ziptmp-400000", 1_000_000)).toBe(600_000);
+  });
+
+  it("returns null for a non-tmp name", () => {
+    expect(tmpFileAgeMs("user-document.pdf")).toBeNull();
+  });
+
+  it("returns null when the timestamp segment is not numeric", () => {
+    expect(tmpFileAgeMs("ziptmp-orphan.pdf")).toBeNull();
+    expect(tmpFileAgeMs("ziptmp-12ab-x.pdf")).toBeNull();
   });
 });
 

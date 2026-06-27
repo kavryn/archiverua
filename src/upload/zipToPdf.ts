@@ -224,7 +224,8 @@ export function releaseTmpFileLock(opfsName: string): void {
 
 // True only if no context currently holds this file's lock (safe to delete).
 // When Web Locks is unavailable we stay conservative and report "locked" so
-// cleanup never deletes a file that might be in use by another tab.
+// cleanup never deletes a file that might be in use by another tab — the
+// age-based fallback below handles those browsers instead.
 async function isTmpFileUnlocked(opfsName: string): Promise<boolean> {
   if (!navigator.locks?.request) return false;
   return await navigator.locks.request(
@@ -234,12 +235,37 @@ async function isTmpFileUnlocked(opfsName: string): Promise<boolean> {
   );
 }
 
+// Anything older than this can't plausibly be an in-flight conversion/upload.
+export const STALE_TMP_AGE_MS = 24 * 60 * 60 * 1000;
+
+// tmp names embed their creation time: `ziptmp-<Date.now()>-<rand>.pdf`. Returns
+// the file's age in ms, or null if the name carries no parseable timestamp.
+export function tmpFileAgeMs(name: string, now: number = Date.now()): number | null {
+  if (!name.startsWith(TMP_PREFIX)) return null;
+  const rest = name.slice(TMP_PREFIX.length);
+  const dash = rest.indexOf("-");
+  const ts = parseInt(dash === -1 ? rest : rest.slice(0, dash), 10);
+  if (!Number.isFinite(ts) || String(ts) !== (dash === -1 ? rest : rest.slice(0, dash))) {
+    return null;
+  }
+  return now - ts;
+}
+
 export async function cleanupStaleTmpFiles(): Promise<void> {
   try {
     const root = await getOpfsRoot();
+    // In browsers with Web Locks the lock is the authoritative staleness signal
+    // (an in-flight file in any tab stays locked). Without Web Locks nothing
+    // would ever be collected, so fall back to age: a tmp file older than
+    // STALE_TMP_AGE_MS can't be a live conversion/upload.
+    const hasLocks = !!navigator.locks?.request;
     // @ts-expect-error — iterator API not yet in TS lib
     for await (const [name] of root.entries() as AsyncIterable<[string, FileSystemHandle]>) {
-      if (name.startsWith(TMP_PREFIX) && (await isTmpFileUnlocked(name))) {
+      if (!name.startsWith(TMP_PREFIX)) continue;
+      const deletable = hasLocks
+        ? await isTmpFileUnlocked(name)
+        : (tmpFileAgeMs(name) ?? 0) > STALE_TMP_AGE_MS;
+      if (deletable) {
         await root.removeEntry(name).catch(() => undefined);
       }
     }
