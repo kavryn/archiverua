@@ -474,6 +474,12 @@ export async function convertZipToPdf(
   const total = entries.length;
   onProgress({ phase: "validating", currentEntry: 0, totalEntries: total, currentName: "" });
 
+  // Reclaim space from tmp PDFs orphaned by crashed or closed sessions before
+  // we estimate and write. pLimit(1) serializes conversions so no sibling is in
+  // flight here, and files this tab still owns stay locked, so this only removes
+  // true orphans — and the freed space is reflected in the estimate below.
+  await cleanupStaleTmpFiles();
+
   // Bail out before touching OPFS if the PDF clearly won't fit.
   try {
     await ensureStorageForPdf(estimatePdfSize(entries));
