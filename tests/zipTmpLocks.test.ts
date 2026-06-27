@@ -130,6 +130,30 @@ describe("OPFS tmp-file locking (cross-tab cleanup)", () => {
     };
     vi.stubGlobal("navigator", { storage: { getDirectory: async () => root } });
     await cleanupStaleTmpFiles();
+    // The name carries no parseable timestamp, so the age fallback can't act.
     expect([...root._map.keys()]).toEqual(["ziptmp-orphan.pdf"]);
+  });
+
+  it("falls back to age when Web Locks is unavailable", async () => {
+    const day = 24 * 60 * 60 * 1000;
+    const old = `ziptmp-${Date.now() - 2 * day}-aaaaaa.pdf`;
+    const recent = `ziptmp-${Date.now() - 60_000}-bbbbbb.pdf`;
+    const root = {
+      _map: new Map([
+        [old, { name: old }],
+        [recent, { name: recent }],
+        ["user-document.pdf", { name: "doc" }],
+      ]),
+      entries() {
+        return this._map.entries();
+      },
+      async removeEntry(name: string) {
+        this._map.delete(name);
+      },
+    };
+    vi.stubGlobal("navigator", { storage: { getDirectory: async () => root } });
+    await cleanupStaleTmpFiles();
+    // Only the >24h tmp file goes; a recent one and a non-tmp file stay.
+    expect([...root._map.keys()].sort()).toEqual([recent, "user-document.pdf"].sort());
   });
 });

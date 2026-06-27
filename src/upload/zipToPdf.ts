@@ -224,7 +224,8 @@ export function releaseTmpFileLock(opfsName: string): void {
 
 // True only if no context currently holds this file's lock (safe to delete).
 // When Web Locks is unavailable we stay conservative and report "locked" so
-// cleanup never deletes a file that might be in use by another tab.
+// cleanup never deletes a file that might be in use by another tab — the
+// age-based fallback below handles those browsers instead.
 async function isTmpFileUnlocked(opfsName: string): Promise<boolean> {
   if (!navigator.locks?.request) return false;
   return await navigator.locks.request(
@@ -234,12 +235,37 @@ async function isTmpFileUnlocked(opfsName: string): Promise<boolean> {
   );
 }
 
+// Anything older than this can't plausibly be an in-flight conversion/upload.
+export const STALE_TMP_AGE_MS = 24 * 60 * 60 * 1000;
+
+// tmp names embed their creation time: `ziptmp-<Date.now()>-<rand>.pdf`. Returns
+// the file's age in ms, or null if the name carries no parseable timestamp.
+export function tmpFileAgeMs(name: string, now: number = Date.now()): number | null {
+  if (!name.startsWith(TMP_PREFIX)) return null;
+  const rest = name.slice(TMP_PREFIX.length);
+  const dash = rest.indexOf("-");
+  const ts = parseInt(dash === -1 ? rest : rest.slice(0, dash), 10);
+  if (!Number.isFinite(ts) || String(ts) !== (dash === -1 ? rest : rest.slice(0, dash))) {
+    return null;
+  }
+  return now - ts;
+}
+
 export async function cleanupStaleTmpFiles(): Promise<void> {
   try {
     const root = await getOpfsRoot();
+    // In browsers with Web Locks the lock is the authoritative staleness signal
+    // (an in-flight file in any tab stays locked). Without Web Locks nothing
+    // would ever be collected, so fall back to age: a tmp file older than
+    // STALE_TMP_AGE_MS can't be a live conversion/upload.
+    const hasLocks = !!navigator.locks?.request;
     // @ts-expect-error — iterator API not yet in TS lib
     for await (const [name] of root.entries() as AsyncIterable<[string, FileSystemHandle]>) {
-      if (name.startsWith(TMP_PREFIX) && (await isTmpFileUnlocked(name))) {
+      if (!name.startsWith(TMP_PREFIX)) continue;
+      const deletable = hasLocks
+        ? await isTmpFileUnlocked(name)
+        : (tmpFileAgeMs(name) ?? 0) > STALE_TMP_AGE_MS;
+      if (deletable) {
         await root.removeEntry(name).catch(() => undefined);
       }
     }
@@ -382,6 +408,87 @@ export async function buildPdfFromImages(
   }
 }
 
+// The output PDF is always at least the sum of the embedded images: PDFKit
+// stores JPEGs verbatim and re-zlib-compresses PNGs, on top of the PDF
+// structure. So the sum of decompressed image sizes is a safe lower bound to
+// check the browser storage bucket against — we don't try to guess the exact
+// final size, just refuse when even this lower bound won't fit.
+export function estimatePdfSize(
+  entries: { entry: Pick<Entry, "uncompressedSize" | "compressedSize"> }[],
+): number {
+  return entries.reduce(
+    (sum, { entry }) => sum + (entry.uncompressedSize || entry.compressedSize || 0),
+    0,
+  );
+}
+
+function formatBytes(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} ГБ`;
+  return `${Math.round(n / 1024 ** 2)} МБ`;
+}
+
+export class StorageQuotaError extends Error {
+  constructor(
+    public readonly requiredBytes: number,
+    public readonly availableBytes: number,
+  ) {
+    super(
+      `Цей архів завеликий, щоб перетворити його на PDF у браузері — потрібно щонайменше ` +
+        `~${formatBytes(requiredBytes)}, а у сховищі браузера доступно лише ~${formatBytes(availableBytes)}. ` +
+        `Перетворіть ZIP на PDF самостійно за допомогою іншої програми та завантажте готовий PDF.`,
+    );
+    this.name = "StorageQuotaError";
+  }
+}
+
+// Thrown when the OPFS write fails with QuotaExceededError despite (or without)
+// the pre-flight check — the bucket filled up mid-conversion. We have no size
+// figures at that point, so the message is generic but gives the same advice.
+export class StorageFullError extends Error {
+  constructor() {
+    super(
+      "Не вдалося зберегти PDF — у сховищі браузера бракує місця. " +
+        "Перетворіть ZIP на PDF самостійно за допомогою іншої програми та завантажте готовий PDF.",
+    );
+    this.name = "StorageFullError";
+  }
+}
+
+// Map an opaque QuotaExceededError raised during the OPFS write to a clear
+// Ukrainian message; pass every other error (including AbortError and our own
+// StorageQuotaError) through unchanged.
+export function mapConversionError(err: unknown): unknown {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: unknown }).name === "QuotaExceededError"
+  ) {
+    return new StorageFullError();
+  }
+  return err;
+}
+
+// Pre-flight: refuse early with a clear message if the origin's storage bucket
+// can't hold the resulting PDF, instead of writing partway and surfacing an
+// opaque QuotaExceededError mid-conversion. Best-effort: when the Storage API
+// or quota figure is unavailable we stay out of the way and let the real write
+// surface any genuine failure.
+export async function ensureStorageForPdf(estimatedBytes: number): Promise<void> {
+  if (typeof navigator === "undefined" || !navigator.storage?.estimate) return;
+  let estimate: StorageEstimate;
+  try {
+    estimate = await navigator.storage.estimate();
+  } catch {
+    return;
+  }
+  const quota = estimate.quota ?? 0;
+  if (quota === 0) return;
+  const available = quota - (estimate.usage ?? 0);
+  if (estimatedBytes > available) {
+    throw new StorageQuotaError(estimatedBytes, available);
+  }
+}
+
 export async function convertZipToPdf(
   zipFile: File,
   onProgress: (p: ZipConversionProgress) => void,
@@ -393,25 +500,47 @@ export async function convertZipToPdf(
   const total = entries.length;
   onProgress({ phase: "validating", currentEntry: 0, totalEntries: total, currentName: "" });
 
-  const root = await getOpfsRoot();
-  const opfsName = `${TMP_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`;
-  // Lock the tmp file before any other tab can reach it via cleanup. Held
-  // until removeOpfsFile (success path) or the catch below (failure path).
-  acquireTmpFileLock(opfsName);
-  const handle = await root.getFileHandle(opfsName, { create: true });
-  const writer = createOpfsWriter(await handle.createWritable());
+  // Reclaim space from tmp PDFs orphaned by crashed or closed sessions before
+  // we estimate and write. pLimit(1) serializes conversions so no sibling is in
+  // flight here, and files this tab still owns stay locked, so this only removes
+  // true orphans — and the freed space is reflected in the estimate below.
+  await cleanupStaleTmpFiles();
 
-  const images: ImageSource[] = entries.map(({ entry, effectiveName }) => ({
-    name: effectiveName,
-    getBytes: async (sig) => {
-      if (!("getData" in entry) || !entry.getData) {
-        throw new Error(`ZIP entry missing data: ${entry.filename}`);
-      }
-      return await entry.getData(new Uint8ArrayWriter(), { signal: sig });
-    },
-  }));
+  // Bail out before touching OPFS if the PDF clearly won't fit, and surface any
+  // pre-write failure (a missing OPFS API) with the reader closed instead of
+  // leaking it. No tmp file or lock exists yet, so there is nothing else to
+  // clean up here.
+  let root: FileSystemDirectoryHandle;
+  try {
+    await ensureStorageForPdf(estimatePdfSize(entries));
+    root = await getOpfsRoot();
+  } catch (err) {
+    await reader.close().catch(() => undefined);
+    throw err;
+  }
+
+  const opfsName = `${TMP_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`;
 
   try {
+    // Lock the tmp file before any other tab can reach it via cleanup, then
+    // create it. getFileHandle/createWritable can themselves throw
+    // QuotaExceededError on near-full storage, so they live inside this try:
+    // the catch then closes the reader, releases the lock, removes any partial
+    // file, and maps the error to a clear message.
+    acquireTmpFileLock(opfsName);
+    const handle = await root.getFileHandle(opfsName, { create: true });
+    const writer = createOpfsWriter(await handle.createWritable());
+
+    const images: ImageSource[] = entries.map(({ entry, effectiveName }) => ({
+      name: effectiveName,
+      getBytes: async (sig) => {
+        if (!("getData" in entry) || !entry.getData) {
+          throw new Error(`ZIP entry missing data: ${entry.filename}`);
+        }
+        return await entry.getData(new Uint8ArrayWriter(), { signal: sig });
+      },
+    }));
+
     await buildPdfFromImages(images, writer, {
       signal,
       onPageDone: (currentEntry, totalEntries, currentName) =>
@@ -434,7 +563,7 @@ export async function convertZipToPdf(
     await reader.close().catch(() => undefined);
     releaseTmpFileLock(opfsName);
     await root.removeEntry(opfsName).catch(() => undefined);
-    throw err;
+    throw mapConversionError(err);
   }
 }
 

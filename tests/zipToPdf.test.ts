@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   BlobWriter,
   Uint8ArrayReader,
@@ -6,6 +6,13 @@ import {
 } from "@zip.js/zip.js";
 import {
   compareEntriesNaturally,
+  convertZipToPdf,
+  ensureStorageForPdf,
+  estimatePdfSize,
+  mapConversionError,
+  StorageFullError,
+  StorageQuotaError,
+  tmpFileAgeMs,
   validateZip,
   ZipValidationError,
 } from "@/upload/zipToPdf";
@@ -192,5 +199,205 @@ describe("ZipValidationError message", () => {
 
   it("reports an empty archive", () => {
     expect(new ZipValidationError([], true).message).toContain("порожній");
+  });
+});
+
+describe("estimatePdfSize", () => {
+  it("sums the decompressed image sizes", () => {
+    expect(
+      estimatePdfSize([
+        { entry: { uncompressedSize: 1000, compressedSize: 400 } },
+        { entry: { uncompressedSize: 2000, compressedSize: 800 } },
+      ]),
+    ).toBe(3000);
+  });
+
+  it("falls back to compressedSize when the uncompressed size is unknown", () => {
+    expect(
+      estimatePdfSize([{ entry: { uncompressedSize: 0, compressedSize: 500 } }]),
+    ).toBe(500);
+  });
+});
+
+describe("ensureStorageForPdf", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubStorage(estimate: { quota?: number; usage?: number } | null) {
+    vi.stubGlobal("navigator", {
+      storage: estimate === null ? undefined : { estimate: async () => estimate },
+    });
+  }
+
+  it("throws StorageQuotaError when the estimate exceeds available space", async () => {
+    stubStorage({ quota: 1000, usage: 900 }); // 100 free, need 101
+    await expect(ensureStorageForPdf(101)).rejects.toBeInstanceOf(StorageQuotaError);
+  });
+
+  it("passes when the estimate fits in the available space", async () => {
+    stubStorage({ quota: 1000, usage: 900 }); // 100 free, need exactly 100
+    await expect(ensureStorageForPdf(100)).resolves.toBeUndefined();
+  });
+
+  it("is a no-op when the Storage API is unavailable", async () => {
+    stubStorage(null);
+    await expect(ensureStorageForPdf(10 ** 12)).resolves.toBeUndefined();
+  });
+
+  it("is a no-op when the quota figure is unknown", async () => {
+    stubStorage({ usage: 0 });
+    await expect(ensureStorageForPdf(10 ** 12)).resolves.toBeUndefined();
+  });
+
+  it("ignores a failing estimate() rather than blocking conversion", async () => {
+    vi.stubGlobal("navigator", {
+      storage: {
+        estimate: async () => {
+          throw new Error("boom");
+        },
+      },
+    });
+    await expect(ensureStorageForPdf(10 ** 12)).resolves.toBeUndefined();
+  });
+});
+
+describe("tmpFileAgeMs", () => {
+  it("derives the age from the timestamp embedded in the name", () => {
+    const now = 1_000_000;
+    expect(tmpFileAgeMs("ziptmp-400000-ab12cd.pdf", now)).toBe(600_000);
+  });
+
+  it("handles names without a random suffix", () => {
+    expect(tmpFileAgeMs("ziptmp-400000", 1_000_000)).toBe(600_000);
+  });
+
+  it("returns null for a non-tmp name", () => {
+    expect(tmpFileAgeMs("user-document.pdf")).toBeNull();
+  });
+
+  it("returns null when the timestamp segment is not numeric", () => {
+    expect(tmpFileAgeMs("ziptmp-orphan.pdf")).toBeNull();
+    expect(tmpFileAgeMs("ziptmp-12ab-x.pdf")).toBeNull();
+  });
+});
+
+describe("mapConversionError", () => {
+  it("maps a QuotaExceededError DOMException to a StorageFullError", () => {
+    const mapped = mapConversionError(
+      new DOMException("The quota has been exceeded.", "QuotaExceededError"),
+    );
+    expect(mapped).toBeInstanceOf(StorageFullError);
+    expect((mapped as StorageFullError).message).toBe(
+      "Не вдалося зберегти PDF — у сховищі браузера бракує місця. " +
+        "Перетворіть ZIP на PDF самостійно за допомогою іншої програми та завантажте готовий PDF.",
+    );
+  });
+
+  it("maps any error whose name is QuotaExceededError", () => {
+    const err = new Error("nope");
+    err.name = "QuotaExceededError";
+    expect(mapConversionError(err)).toBeInstanceOf(StorageFullError);
+  });
+
+  it("passes an AbortError through unchanged", () => {
+    const abort = new DOMException("Aborted", "AbortError");
+    expect(mapConversionError(abort)).toBe(abort);
+  });
+
+  it("passes an unrelated error through unchanged", () => {
+    const other = new Error("boom");
+    expect(mapConversionError(other)).toBe(other);
+  });
+
+  it("passes non-error values through unchanged", () => {
+    expect(mapConversionError("oops")).toBe("oops");
+    expect(mapConversionError(null)).toBe(null);
+  });
+});
+
+describe("convertZipToPdf OPFS failures before the write loop", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  // Minimal async-grant Web Locks fake: tracks held locks so we can assert the
+  // tmp-file lock is released after a failure.
+  function makeFakeLocks() {
+    const held = new Set<string>();
+    return {
+      held,
+      request(
+        name: string,
+        optionsOrCb: unknown,
+        maybeCb?: (lock: unknown) => unknown,
+      ): Promise<unknown> {
+        const options = (typeof optionsOrCb === "function" ? {} : optionsOrCb) as {
+          ifAvailable?: boolean;
+        };
+        const cb = (typeof optionsOrCb === "function" ? optionsOrCb : maybeCb) as (
+          lock: unknown,
+        ) => unknown;
+        if (options.ifAvailable) {
+          if (held.has(name)) return Promise.resolve(cb(null));
+          held.add(name);
+          return Promise.resolve(cb({ name })).finally(() => held.delete(name));
+        }
+        return new Promise((resolve, reject) => {
+          queueMicrotask(() => {
+            held.add(name);
+            Promise.resolve(cb({ name }))
+              .finally(() => held.delete(name))
+              .then(resolve, reject);
+          });
+        });
+      },
+    };
+  }
+
+  it("maps a getFileHandle QuotaExceededError and releases the tmp-file lock", async () => {
+    const locks = makeFakeLocks();
+    let removed = false;
+    const root = {
+      entries() {
+        return new Map().entries();
+      },
+      async getFileHandle() {
+        throw new DOMException("quota", "QuotaExceededError");
+      },
+      async removeEntry() {
+        removed = true;
+      },
+    };
+    vi.stubGlobal("navigator", {
+      locks,
+      storage: {
+        getDirectory: async () => root,
+        estimate: async () => ({ quota: 10 ** 12, usage: 0 }),
+      },
+    });
+
+    const zip = await makeZip({ "page1.png": PNG_1x1 });
+    const err = await convertZipToPdf(zip, () => {}).catch((e) => e);
+
+    // The raw DOMException is mapped to the friendly storage-full error...
+    expect(err).toBeInstanceOf(StorageFullError);
+    // ...the partial file is cleaned up, and the lock does not leak.
+    expect(removed).toBe(true);
+    await flush();
+    expect(locks.held.size).toBe(0);
+  });
+});
+
+describe("StorageQuotaError message", () => {
+  it("names the required and available space and suggests converting elsewhere", () => {
+    const msg = new StorageQuotaError(2 * 1024 ** 3, 500 * 1024 ** 2).message;
+    expect(msg).toBe(
+      "Цей архів завеликий, щоб перетворити його на PDF у браузері — потрібно щонайменше " +
+        "~2.0 ГБ, а у сховищі браузера доступно лише ~500 МБ. " +
+        "Перетворіть ZIP на PDF самостійно за допомогою іншої програми та завантажте готовий PDF.",
+    );
   });
 });
