@@ -11,6 +11,10 @@ describe("normalizeFond", () => {
     expect(normalizeFond("р203")).toBe("Р-203");
   });
 
+  it('inserts a dash after a multi-letter prefix, "кмф9" to "КМФ-9"', () => {
+    expect(normalizeFond("кмф9")).toBe("КМФ-9");
+  });
+
   it("removes spaces before normalizing", () => {
     expect(normalizeFond(" р 203 ")).toBe("Р-203");
   });
@@ -66,6 +70,24 @@ describe("parseArchivalReferenceFromFileName", () => {
     });
   });
 
+  it("parses a multi-letter fond prefix of up to three letters", () => {
+    expect(parseArchivalReferenceFromFileName("ЦДІАК КМФ-9-1-5.pdf")).toMatchObject({
+      archive: { abbr: "ЦДІАК" },
+      fond: "КМФ-9",
+      opys: "1",
+      sprava: "5",
+    });
+  });
+
+  it("rejects a fond prefix longer than three letters", () => {
+    expect(parseArchivalReferenceFromFileName("ЦДІАК АБВГ-9-1-5.pdf")).toMatchObject({
+      archive: { abbr: "ЦДІАК" },
+      fond: "",
+      opys: "",
+      sprava: "",
+    });
+  });
+
   it("parses archival references when the archive abbreviation is followed by a hyphen", () => {
     expect(parseArchivalReferenceFromFileName("ЦДІАЛ-201-4а-348.pdf")).toMatchObject({
       archive: { abbr: "ЦДІАЛ" },
@@ -93,8 +115,8 @@ describe("parseArchivalReferenceFromFileName", () => {
     });
   });
 
-  it("parses underscores and mixed case", () => {
-    expect(parseArchivalReferenceFromFileName("цдіак_р203_2_45.PDF")).toMatchObject({
+  it("parses an underscore archive separator and mixed case", () => {
+    expect(parseArchivalReferenceFromFileName("цдіак_р203-2-45.PDF")).toMatchObject({
       archive: { abbr: "ЦДІАК" },
       fond: "Р-203",
       opys: "2",
@@ -139,48 +161,39 @@ describe("parseArchivalReferenceFromFileName", () => {
     expect(parseArchivalReferenceFromFileName("scan_001.pdf")).toBeNull();
   });
 
-  it("takes the code from a self-contained first token and ignores trailing junk tokens", () => {
-    expect(parseArchivalReferenceFromFileName("ДАЛО 123-4-56_scan001.pdf")).toMatchObject({
-      archive: { abbr: "ДАЛО" },
-      fond: "123",
-      opys: "4",
-      sprava: "56",
+  it("returns only the archive when trailing junk follows the code (underscore or space)", () => {
+    // The code segment must be exactly "fond-opys-sprava"; a scan id or page number after it
+    // makes the segment invalid, so the code is dropped and only the archive is returned.
+    for (const name of ["ДАЛО 123-4-56_scan001.pdf", "ДАЛО 123-4-56 scan001.pdf"]) {
+      expect(parseArchivalReferenceFromFileName(name)).toMatchObject({
+        archive: { abbr: "ДАЛО" },
+        fond: "",
+        opys: "",
+        sprava: "",
+      });
+    }
+  });
+
+  it("returns only the archive when a page number follows the sprava after a space", () => {
+    // "1378-1-180 1" carries a trailing page number, so the whole code segment is invalid.
+    expect(parseArchivalReferenceFromFileName("ЦДІАК 1378-1-180 1.pdf")).toMatchObject({
+      archive: { abbr: "ЦДІАК" },
+      fond: "",
+      opys: "",
+      sprava: "",
     });
   });
 
-  it("keeps the code but drops the tail when junk sits between the code and the years", () => {
-    // Everything after the code ("_scan001. 1910. Назва документа") is junk because the
-    // tail does not directly follow the code, so the years and title stay empty.
-    expect(
-      parseArchivalReferenceFromFileName("ДАЛО 123-4-56_scan001. 1910. Назва документа.pdf"),
-    ).toMatchObject({
-      archive: { abbr: "ДАЛО" },
-      fond: "123",
-      opys: "4",
-      sprava: "56",
-      dateFrom: "",
-      dateTo: "",
-      title: "",
-    });
-  });
-
-  it("takes the code from a complete first token and ignores space-separated trailing junk", () => {
-    expect(parseArchivalReferenceFromFileName("ДАЛО 123-4-56 scan001.pdf")).toMatchObject({
-      archive: { abbr: "ДАЛО" },
-      fond: "123",
-      opys: "4",
-      sprava: "56",
-    });
-  });
-
-  it("drops the tail when space-separated junk sits between the code and the years", () => {
+  it("drops the tail too when junk makes the code invalid", () => {
+    // Because the code segment ("123-4-56 scan001") does not parse, everything after it —
+    // including the years and title — is left empty.
     expect(
       parseArchivalReferenceFromFileName("ДАЛО 123-4-56 scan001. 1910. Назва документа.pdf"),
     ).toMatchObject({
       archive: { abbr: "ДАЛО" },
-      fond: "123",
-      opys: "4",
-      sprava: "56",
+      fond: "",
+      opys: "",
+      sprava: "",
       dateFrom: "",
       dateTo: "",
       title: "",
@@ -197,9 +210,9 @@ describe("parseArchivalReferenceFromFileName", () => {
 });
 
 describe("parseArchivalReferenceFromFileName code separator variants", () => {
-  it("parses an underscore-delimited code followed by a tail", () => {
+  it("parses a dash-delimited code followed by a tail", () => {
     expect(
-      parseArchivalReferenceFromFileName("ЦДІАК Р203_2_45. 1910. Опис справ.pdf"),
+      parseArchivalReferenceFromFileName("ЦДІАК Р203-2-45. 1910. Опис справ.pdf"),
     ).toMatchObject({
       archive: { abbr: "ЦДІАК" },
       fond: "Р-203",
@@ -211,25 +224,21 @@ describe("parseArchivalReferenceFromFileName code separator variants", () => {
     });
   });
 
-  it("falls through to the token split when the three-dash reading is invalid", () => {
-    // Split on "-" gives ["Р", "203_4", "а_5"], whose first part "Р" is not a valid fond;
-    // the parser must keep trying and split on "_" instead -> Р-203 / 4а / 5.
-    expect(parseArchivalReferenceFromFileName("ДАЛО Р-203_4-а_5.pdf")).toMatchObject({
-      archive: { abbr: "ДАЛО" },
-      fond: "Р-203",
-      opys: "4а",
-      sprava: "5",
+  it("does not support underscore or slash separators inside the code", () => {
+    // The code parts are joined by dashes only. Underscores and slashes between parts are not
+    // recognized, so only the archive is returned. (An underscore between the archive and the
+    // code is still fine — that is handled by the prefix matcher.)
+    expect(parseArchivalReferenceFromFileName("ЦДІАК Р203_2_45.pdf")).toMatchObject({
+      archive: { abbr: "ЦДІАК" },
+      fond: "",
+      opys: "",
+      sprava: "",
     });
-  });
-
-  it("falls through to the token split when the four-dash reading is invalid", () => {
-    // Split on "-" yields a four-part reading with an invalid fond "Р-203_4"; the parser
-    // must fall back to the "_" split -> Р-203 / 4а / 5б.
-    expect(parseArchivalReferenceFromFileName("ДАЛО Р-203_4-а_5-б.pdf")).toMatchObject({
+    expect(parseArchivalReferenceFromFileName("ДАЛО 123/4/56.pdf")).toMatchObject({
       archive: { abbr: "ДАЛО" },
-      fond: "Р-203",
-      opys: "4а",
-      sprava: "5б",
+      fond: "",
+      opys: "",
+      sprava: "",
     });
   });
 });
