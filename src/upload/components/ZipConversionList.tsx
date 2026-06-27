@@ -26,7 +26,7 @@ export default function ZipConversionList({ conversions, onRemove }: Props) {
         } else if (c.status === "validating") {
           statusLabel = "Перевірка архіву…";
         } else {
-          statusLabel = `Конвертація ${c.currentEntry} / ${c.totalEntries}: ${c.currentName}`;
+          statusLabel = `Конвертація у PDF — зображення ${c.currentEntry} з ${c.totalEntries}: ${c.currentName}`;
         }
 
         return (

@@ -107,7 +107,7 @@ export default function FileDropZone({ files, onAdd, onRemove, previews, pending
                     <span className="truncate font-bold">{file.name}</span>
                     {isZipSourced && (
                       <span className="shrink-0 rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-medium text-zinc-600">
-                        ZIP
+                        ZIP → PDF
                       </span>
                     )}
                   </span>

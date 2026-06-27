@@ -16,8 +16,9 @@ export default function UploadGateNotice({ availableFrom }: { availableFrom: str
     <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-5 flex flex-col gap-3">
       <h2 className="font-semibold text-gray-900">Завантаження поки недоступне</h2>
       <p className="text-sm text-gray-700">
-        Завантаження PDF файлів стає доступним лише через 4 дні після реєстрації акаунта.
-        {formatted ? <> Для вашого акаунта це орієнтовно {formatted}</> : null}
+        Завантаження PDF файлів стає доступним лише через 4 дні після реєстрації акаунта
+        (це обмеження Вікімедіа для захисту від спаму).
+        {formatted ? <> Для вашого акаунта це орієнтовно {formatted}.</> : null}
       </p>
       <p className="text-sm text-gray-700">
         Якщо потрібно завантажити архівні справи раніше, можна попросити про це інших учасників

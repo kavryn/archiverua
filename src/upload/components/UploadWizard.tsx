@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useUploadWizard } from "../hooks/useUploadWizard";
 import FileDropZone from "./FileDropZone";
 import UploadEntryCards from "./UploadEntryCards";
@@ -25,6 +26,12 @@ export default function UploadWizard({ directUploadEnabled }: { directUploadEnab
     pendingPreviews,
     zipSourced,
   } = useUploadWizard(directUploadEnabled);
+
+  // On step change the layout is replaced but the window keeps its scroll
+  // position, dropping the user at the bottom of the next step. Reset to top.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [step]);
 
   if (step === 1) {
     return (
