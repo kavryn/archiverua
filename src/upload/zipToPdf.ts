@@ -415,6 +415,33 @@ export class StorageQuotaError extends Error {
   }
 }
 
+// Thrown when the OPFS write fails with QuotaExceededError despite (or without)
+// the pre-flight check — the bucket filled up mid-conversion. We have no size
+// figures at that point, so the message is generic but gives the same advice.
+export class StorageFullError extends Error {
+  constructor() {
+    super(
+      "Не вдалося зберегти PDF — у сховищі браузера бракує місця. " +
+        "Перетворіть ZIP на PDF самостійно за допомогою іншої програми та завантажте готовий PDF.",
+    );
+    this.name = "StorageFullError";
+  }
+}
+
+// Map an opaque QuotaExceededError raised during the OPFS write to a clear
+// Ukrainian message; pass every other error (including AbortError and our own
+// StorageQuotaError) through unchanged.
+export function mapConversionError(err: unknown): unknown {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: unknown }).name === "QuotaExceededError"
+  ) {
+    return new StorageFullError();
+  }
+  return err;
+}
+
 // Pre-flight: refuse early with a clear message if the origin's storage bucket
 // can't hold the resulting PDF, instead of writing partway and surfacing an
 // opaque QuotaExceededError mid-conversion. Best-effort: when the Storage API
@@ -496,7 +523,7 @@ export async function convertZipToPdf(
     await reader.close().catch(() => undefined);
     releaseTmpFileLock(opfsName);
     await root.removeEntry(opfsName).catch(() => undefined);
-    throw err;
+    throw mapConversionError(err);
   }
 }
 

@@ -8,6 +8,8 @@ import {
   compareEntriesNaturally,
   ensureStorageForPdf,
   estimatePdfSize,
+  mapConversionError,
+  StorageFullError,
   StorageQuotaError,
   validateZip,
   ZipValidationError,
@@ -255,6 +257,40 @@ describe("ensureStorageForPdf", () => {
       },
     });
     await expect(ensureStorageForPdf(10 ** 12)).resolves.toBeUndefined();
+  });
+});
+
+describe("mapConversionError", () => {
+  it("maps a QuotaExceededError DOMException to a StorageFullError", () => {
+    const mapped = mapConversionError(
+      new DOMException("The quota has been exceeded.", "QuotaExceededError"),
+    );
+    expect(mapped).toBeInstanceOf(StorageFullError);
+    expect((mapped as StorageFullError).message).toBe(
+      "Не вдалося зберегти PDF — у сховищі браузера бракує місця. " +
+        "Перетворіть ZIP на PDF самостійно за допомогою іншої програми та завантажте готовий PDF.",
+    );
+  });
+
+  it("maps any error whose name is QuotaExceededError", () => {
+    const err = new Error("nope");
+    err.name = "QuotaExceededError";
+    expect(mapConversionError(err)).toBeInstanceOf(StorageFullError);
+  });
+
+  it("passes an AbortError through unchanged", () => {
+    const abort = new DOMException("Aborted", "AbortError");
+    expect(mapConversionError(abort)).toBe(abort);
+  });
+
+  it("passes an unrelated error through unchanged", () => {
+    const other = new Error("boom");
+    expect(mapConversionError(other)).toBe(other);
+  });
+
+  it("passes non-error values through unchanged", () => {
+    expect(mapConversionError("oops")).toBe("oops");
+    expect(mapConversionError(null)).toBe(null);
   });
 });
 
