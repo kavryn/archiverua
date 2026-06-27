@@ -9,7 +9,21 @@ export interface ParsedArchivalReference {
   fond: string;
   opys: string;
   sprava: string;
+  dateFrom: string;
+  dateTo: string;
+  title: string;
 }
+
+interface ParsedTail {
+  dateFrom: string;
+  dateTo: string;
+  title: string;
+}
+
+// Matches the trailing "Роки. Назва" part following the fond-opys-sprava code, e.g.
+// ". 1925-1930. Листування". Years and title are delimited from the code (and from each
+// other) by a dot, optionally followed by spaces.
+const TAIL_RE = /\.\s*(\d{4})(?:-(\d{4}))?\.\s*(.+)$/u;
 
 function stripLeadingZeros(value: string): string {
   return value.replace(/^(0+)(\d)/, "$2");
@@ -141,15 +155,32 @@ function findArchivePrefix(fileNameStem: string): { archive: Archive; rest: stri
   return null;
 }
 
+// Extracts the optional trailing "Роки. Назва" part. A single year sets dateFrom and
+// dateTo to the same value. Returns null when there is no date + title tail.
+function parseTail(rest: string): ParsedTail | null {
+  const match = rest.match(TAIL_RE);
+  if (!match) return null;
+
+  const title = match[3].trim();
+  if (!title) return null;
+
+  return { dateFrom: match[1], dateTo: match[2] ?? match[1], title };
+}
+
+const EMPTY_TAIL: ParsedTail = { dateFrom: "", dateTo: "", title: "" };
+
 export function parseArchivalReferenceFromFileName(fileName: string): ParsedArchivalReference | null {
   const prefix = findArchivePrefix(getFileNameStem(fileName));
   if (!prefix) return null;
 
+  // Parse the fond-opys-sprava code from the leading tokens first.
+  // Then read the optional date + title tail that may follow it.
   const code = parseCodeFromTokens(prefix.rest);
   if (!code) return null;
 
   return {
     archive: prefix.archive,
     ...code,
+    ...(parseTail(prefix.rest) ?? EMPTY_TAIL),
   };
 }

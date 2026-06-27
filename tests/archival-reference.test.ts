@@ -133,6 +133,90 @@ describe("parseArchivalReferenceFromFileName", () => {
   it("returns null when the file name does not start with a known archive reference", () => {
     expect(parseArchivalReferenceFromFileName("scan_001.pdf")).toBeNull();
   });
+
+  it("leaves the date and title empty when the file name carries only a code", () => {
+    expect(parseArchivalReferenceFromFileName("ЦДІАЛ 201-4а-348.pdf")).toMatchObject({
+      dateFrom: "",
+      dateTo: "",
+      title: "",
+    });
+  });
+});
+
+describe("parseArchivalReferenceFromFileName with years and title", () => {
+  it("parses a year range and title in the canonical format", () => {
+    expect(
+      parseArchivalReferenceFromFileName("ДАЛО 123-4-56. 1925-1930. Листування.pdf"),
+    ).toMatchObject({
+      archive: { abbr: "ДАЛО" },
+      fond: "123",
+      opys: "4",
+      sprava: "56",
+      dateFrom: "1925",
+      dateTo: "1930",
+      title: "Листування",
+    });
+  });
+
+  it("parses a single year with dateTo equal to dateFrom", () => {
+    expect(
+      parseArchivalReferenceFromFileName("ЦДАВО Р1-2-3. 1920. Протокол засідання.pdf"),
+    ).toMatchObject({
+      archive: { abbr: "ЦДАВО" },
+      fond: "Р-1",
+      opys: "2",
+      sprava: "3",
+      dateFrom: "1920",
+      dateTo: "1920",
+      title: "Протокол засідання",
+    });
+  });
+
+  it("keeps dots and digits that belong to the title", () => {
+    expect(
+      parseArchivalReferenceFromFileName("ЦДІАК П789-10-11. 1918. Акт передачі. Том 1.pdf"),
+    ).toMatchObject({
+      fond: "П-789",
+      opys: "10",
+      sprava: "11",
+      dateFrom: "1918",
+      title: "Акт передачі. Том 1",
+    });
+  });
+
+  it("does not mistake a year inside the title for the document date", () => {
+    expect(
+      parseArchivalReferenceFromFileName("ДАЛО 1-2-3. 1900. Метрика 1925 року.pdf"),
+    ).toMatchObject({
+      dateFrom: "1900",
+      title: "Метрика 1925 року",
+    });
+  });
+
+  it("extracts the tail when the archive separator is an underscore", () => {
+    expect(
+      parseArchivalReferenceFromFileName("ДАЛО_123-4-56. 1925-1930. Листування.pdf"),
+    ).toMatchObject({
+      fond: "123",
+      opys: "4",
+      sprava: "56",
+      dateFrom: "1925",
+      dateTo: "1930",
+      title: "Листування",
+    });
+  });
+
+  it("requires a dot before the year, so a space-delimited trailing word is not a title", () => {
+    // Without a dot delimiter "1999" stays the sprava and "Назва" is ignored.
+    expect(parseArchivalReferenceFromFileName("ДАЛО 5 1 1999. Назва.pdf")).toMatchObject({
+      fond: "5",
+      opys: "1",
+      sprava: "1999",
+      dateFrom: "",
+      dateTo: "",
+      title: "",
+    });
+  });
 });
 
 describe("makeEntry", () => {
@@ -152,5 +236,27 @@ describe("makeEntry", () => {
     expect(entry.fond).toBe("");
     expect(entry.opys).toBe("");
     expect(entry.sprava).toBe("");
+    expect(entry.dateFrom).toBe("");
+    expect(entry.dateTo).toBe("");
+    expect(entry.dateMode).toBe("range");
+    expect(entry.spravaName).toBe("");
+  });
+
+  it("pre-fills a year range as range mode with both dates and the title", () => {
+    const entry = makeEntry(new File(["test"], "ДАЛО 123-4-56. 1925-1930. Листування.pdf"));
+
+    expect(entry.dateMode).toBe("range");
+    expect(entry.dateFrom).toBe("1925");
+    expect(entry.dateTo).toBe("1930");
+    expect(entry.spravaName).toBe("Листування");
+  });
+
+  it("pre-fills a single year as single mode with equal dates", () => {
+    const entry = makeEntry(new File(["test"], "ЦДАВО Р1-2-3. 1920. Протокол засідання.pdf"));
+
+    expect(entry.dateMode).toBe("single");
+    expect(entry.dateFrom).toBe("1920");
+    expect(entry.dateTo).toBe("1920");
+    expect(entry.spravaName).toBe("Протокол засідання");
   });
 });

@@ -82,6 +82,9 @@ export interface FileEntry {
 
 export function makeEntry(file: File): FileEntry {
   const parsedReference = parseArchivalReferenceFromFileName(file.name);
+  const dateFrom = parsedReference?.dateFrom ?? "";
+  const dateTo = parsedReference?.dateTo ?? "";
+  const dateMode: DateMode = dateFrom && dateFrom === dateTo ? "single" : "range";
 
   return {
     file,
@@ -89,14 +92,14 @@ export function makeEntry(file: File): FileEntry {
     fond: parsedReference?.fond ?? "",
     opys: parsedReference?.opys ?? "",
     sprava: parsedReference?.sprava ?? "",
-    dateMode: "range",
-    dateFrom: "",
-    dateTo: "",
+    dateMode,
+    dateFrom,
+    dateTo,
     license: [],
     licenseManuallySet: false,
     fondName: emptyNameState,
     opysName: emptyNameState,
-    spravaName: "",
+    spravaName: parsedReference?.title ?? "",
     spravaWikisource: emptySpravaWikisource,
     author: "",
     fileName: "",
