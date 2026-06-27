@@ -506,33 +506,41 @@ export async function convertZipToPdf(
   // true orphans — and the freed space is reflected in the estimate below.
   await cleanupStaleTmpFiles();
 
-  // Bail out before touching OPFS if the PDF clearly won't fit.
+  // Bail out before touching OPFS if the PDF clearly won't fit, and surface any
+  // pre-write failure (a missing OPFS API) with the reader closed instead of
+  // leaking it. No tmp file or lock exists yet, so there is nothing else to
+  // clean up here.
+  let root: FileSystemDirectoryHandle;
   try {
     await ensureStorageForPdf(estimatePdfSize(entries));
+    root = await getOpfsRoot();
   } catch (err) {
     await reader.close().catch(() => undefined);
     throw err;
   }
 
-  const root = await getOpfsRoot();
   const opfsName = `${TMP_PREFIX}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`;
-  // Lock the tmp file before any other tab can reach it via cleanup. Held
-  // until removeOpfsFile (success path) or the catch below (failure path).
-  acquireTmpFileLock(opfsName);
-  const handle = await root.getFileHandle(opfsName, { create: true });
-  const writer = createOpfsWriter(await handle.createWritable());
-
-  const images: ImageSource[] = entries.map(({ entry, effectiveName }) => ({
-    name: effectiveName,
-    getBytes: async (sig) => {
-      if (!("getData" in entry) || !entry.getData) {
-        throw new Error(`ZIP entry missing data: ${entry.filename}`);
-      }
-      return await entry.getData(new Uint8ArrayWriter(), { signal: sig });
-    },
-  }));
 
   try {
+    // Lock the tmp file before any other tab can reach it via cleanup, then
+    // create it. getFileHandle/createWritable can themselves throw
+    // QuotaExceededError on near-full storage, so they live inside this try:
+    // the catch then closes the reader, releases the lock, removes any partial
+    // file, and maps the error to a clear message.
+    acquireTmpFileLock(opfsName);
+    const handle = await root.getFileHandle(opfsName, { create: true });
+    const writer = createOpfsWriter(await handle.createWritable());
+
+    const images: ImageSource[] = entries.map(({ entry, effectiveName }) => ({
+      name: effectiveName,
+      getBytes: async (sig) => {
+        if (!("getData" in entry) || !entry.getData) {
+          throw new Error(`ZIP entry missing data: ${entry.filename}`);
+        }
+        return await entry.getData(new Uint8ArrayWriter(), { signal: sig });
+      },
+    }));
+
     await buildPdfFromImages(images, writer, {
       signal,
       onPageDone: (currentEntry, totalEntries, currentName) =>

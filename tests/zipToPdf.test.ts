@@ -6,6 +6,7 @@ import {
 } from "@zip.js/zip.js";
 import {
   compareEntriesNaturally,
+  convertZipToPdf,
   ensureStorageForPdf,
   estimatePdfSize,
   mapConversionError,
@@ -312,6 +313,81 @@ describe("mapConversionError", () => {
   it("passes non-error values through unchanged", () => {
     expect(mapConversionError("oops")).toBe("oops");
     expect(mapConversionError(null)).toBe(null);
+  });
+});
+
+describe("convertZipToPdf OPFS failures before the write loop", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const flush = () => new Promise((r) => setTimeout(r, 0));
+
+  // Minimal async-grant Web Locks fake: tracks held locks so we can assert the
+  // tmp-file lock is released after a failure.
+  function makeFakeLocks() {
+    const held = new Set<string>();
+    return {
+      held,
+      request(
+        name: string,
+        optionsOrCb: unknown,
+        maybeCb?: (lock: unknown) => unknown,
+      ): Promise<unknown> {
+        const options = (typeof optionsOrCb === "function" ? {} : optionsOrCb) as {
+          ifAvailable?: boolean;
+        };
+        const cb = (typeof optionsOrCb === "function" ? optionsOrCb : maybeCb) as (
+          lock: unknown,
+        ) => unknown;
+        if (options.ifAvailable) {
+          if (held.has(name)) return Promise.resolve(cb(null));
+          held.add(name);
+          return Promise.resolve(cb({ name })).finally(() => held.delete(name));
+        }
+        return new Promise((resolve, reject) => {
+          queueMicrotask(() => {
+            held.add(name);
+            Promise.resolve(cb({ name }))
+              .finally(() => held.delete(name))
+              .then(resolve, reject);
+          });
+        });
+      },
+    };
+  }
+
+  it("maps a getFileHandle QuotaExceededError and releases the tmp-file lock", async () => {
+    const locks = makeFakeLocks();
+    let removed = false;
+    const root = {
+      entries() {
+        return new Map().entries();
+      },
+      async getFileHandle() {
+        throw new DOMException("quota", "QuotaExceededError");
+      },
+      async removeEntry() {
+        removed = true;
+      },
+    };
+    vi.stubGlobal("navigator", {
+      locks,
+      storage: {
+        getDirectory: async () => root,
+        estimate: async () => ({ quota: 10 ** 12, usage: 0 }),
+      },
+    });
+
+    const zip = await makeZip({ "page1.png": PNG_1x1 });
+    const err = await convertZipToPdf(zip, () => {}).catch((e) => e);
+
+    // The raw DOMException is mapped to the friendly storage-full error...
+    expect(err).toBeInstanceOf(StorageFullError);
+    // ...the partial file is cleaned up, and the lock does not leak.
+    expect(removed).toBe(true);
+    await flush();
+    expect(locks.held.size).toBe(0);
   });
 });
 
