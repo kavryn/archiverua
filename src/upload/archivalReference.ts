@@ -20,10 +20,16 @@ interface ParsedTail {
   title: string;
 }
 
-// Matches the trailing "Роки. Назва" part following the fond-opys-sprava code, e.g.
-// ". 1925-1930. Листування". Years and title are delimited from the code (and from each
-// other) by a dot, optionally followed by spaces.
-const TAIL_RE = /\.\s*(\d{4})(?:-(\d{4}))?\.\s*(.+)$/u;
+interface ParsedCode {
+  fond: string;
+  opys: string;
+  sprava: string;
+}
+
+// Matches the ". Роки. Назва" tail that directly follows the code, anchored at the start
+// of the remainder, e.g. ". 1925-1930. Листування". Years and title are delimited by a
+// dot, optionally followed by spaces.
+const TAIL_RE = /^\.\s*(\d{4})(?:-(\d{4}))?\.\s*(.+)$/u;
 
 function stripLeadingZeros(value: string): string {
   return value.replace(/^(0+)(\d)/, "$2");
@@ -64,11 +70,7 @@ function isValidOpysOrSprava(value: string): boolean {
   return OPYS_OR_SPRAVA_FORMAT_RE.test(value);
 }
 
-function parseCodeParts(fond: string, opys: string, sprava: string): {
-  fond: string;
-  opys: string;
-  sprava: string;
-} | null {
+function parseCodeParts(fond: string, opys: string, sprava: string): ParsedCode | null {
   const normalizedFond = normalizeFond(fond);
   const normalizedOpys = normalizeOpysSprava(opys);
   const normalizedSprava = normalizeOpysSprava(sprava);
@@ -88,36 +90,50 @@ function parseCodeParts(fond: string, opys: string, sprava: string): {
   };
 }
 
-function parseCodeFromSingleToken(token: string): {
-  fond: string;
-  opys: string;
-  sprava: string;
-} | null {
-  const parts = token.split("-").filter(Boolean);
-  if (parts.length === 3) {
-    return parseCodeParts(parts[0], parts[1], parts[2]);
+// Parses a complete "fond-opys-sprava" code. Hyphen-delimited codes ("123-4-56", or
+// "Р-234-4-38" where the leading letter belongs to the fond) are by far the most common
+// form, so they are tried first; "_"/"/" separators are a fallback. A given split is only
+// one possible reading, so if its parts are not valid we fall through to the next variant
+// rather than giving up. The whole string must be the code — any leftover token makes it
+// fail.
+function parseCode(code: string): ParsedCode | null {
+  const dashed = code.split("-").filter(Boolean);
+  if (dashed.length === 3) {
+    const parsed = parseCodeParts(dashed[0], dashed[1], dashed[2]);
+    if (parsed) return parsed;
+  }
+  if (dashed.length === 4) {
+    const parsed = parseCodeParts(`${dashed[0]}-${dashed[1]}`, dashed[2], dashed[3]);
+    if (parsed) return parsed;
   }
 
-  if (parts.length === 4) {
-    return parseCodeParts(`${parts[0]}-${parts[1]}`, parts[2], parts[3]);
+  const tokens = code.split(/[_/]+/u).filter(Boolean);
+  if (tokens.length === 3) {
+    const parsed = parseCodeParts(tokens[0], tokens[1], tokens[2]);
+    if (parsed) return parsed;
   }
 
   return null;
 }
 
-function parseCodeFromTokens(rest: string): {
-  fond: string;
-  opys: string;
-  sprava: string;
-} | null {
-  const tokens = rest.split(/[\s._/]+/u).filter(Boolean);
-  if (tokens.length === 0) return null;
+// Parses the code from the segment before the tail. First tries the whole segment as a
+// clean code; if that fails, the segment may be a code with trailing junk
+// ("123-4-56_scan001", "123-4-56 scan001"), so it retries on the leading token delimited
+// by a space, "_" or "/". Note that "parseCode" itself never splits on whitespace, so a
+// space-separated first token must already be a complete code — "5 1 3" still fails. The
+// two parseCode calls run on different strings (whole segment vs. its first token), never
+// the same one. `exact` is false in the junk case, telling the caller to drop the tail.
+function parseCodeSegment(segment: string): { code: ParsedCode; exact: boolean } | null {
+  const whole = parseCode(segment);
+  if (whole) return { code: whole, exact: true };
 
-  const fromSingleToken = parseCodeFromSingleToken(tokens[0]);
-  if (fromSingleToken) return fromSingleToken;
+  const leading = segment.split(/[\s_/]+/u)[0];
+  if (leading && leading !== segment) {
+    const code = parseCode(leading);
+    if (code) return { code, exact: false };
+  }
 
-  if (tokens.length < 3) return null;
-  return parseCodeParts(tokens[0], tokens[1], tokens[2]);
+  return null;
 }
 
 function escapeRegExp(value: string): string {
@@ -155,10 +171,11 @@ function findArchivePrefix(fileNameStem: string): { archive: Archive; rest: stri
   return null;
 }
 
-// Extracts the optional trailing "Роки. Назва" part. A single year sets dateFrom and
-// dateTo to the same value. Returns null when there is no date + title tail.
-function parseTail(rest: string): ParsedTail | null {
-  const match = rest.match(TAIL_RE);
+// Parses the optional ". Роки. Назва" tail that directly follows the code. A single year
+// sets dateFrom and dateTo to the same value. Returns null when the remainder is not a
+// well-formed tail.
+function parseTail(remainder: string): ParsedTail | null {
+  const match = remainder.match(TAIL_RE);
   if (!match) return null;
 
   const title = match[3].trim();
@@ -173,14 +190,25 @@ export function parseArchivalReferenceFromFileName(fileName: string): ParsedArch
   const prefix = findArchivePrefix(getFileNameStem(fileName));
   if (!prefix) return null;
 
-  // Parse the fond-opys-sprava code from the leading tokens first.
-  // Then read the optional date + title tail that may follow it.
-  const code = parseCodeFromTokens(prefix.rest);
-  if (!code) return null;
+  // Once the archive prefix is recognized we always return at least that. The body starts
+  // with a fond-opys-sprava code (which never contains a dot), optionally followed by a
+  // ". Роки. Назва" tail. The segment before the first dot is the code; everything from the
+  // dot on is the potential tail.
+  const { rest } = prefix;
+  const dotIndex = rest.indexOf(".");
+  const codeSegment = dotIndex === -1 ? rest : rest.slice(0, dotIndex);
+  const parsed = parseCodeSegment(codeSegment);
+
+  // The tail counts only when the code fills the whole segment before it. If the code
+  // needed junk stripped (e.g. "123-4-56_scan001"), that junk sits between the code and the
+  // tail, so the tail — and everything after the code — is dropped.
+  const tail = parsed?.exact && dotIndex !== -1 ? parseTail(rest.slice(dotIndex)) : null;
 
   return {
     archive: prefix.archive,
-    ...code,
-    ...(parseTail(prefix.rest) ?? EMPTY_TAIL),
+    fond: parsed?.code.fond ?? "",
+    opys: parsed?.code.opys ?? "",
+    sprava: parsed?.code.sprava ?? "",
+    ...(tail ?? EMPTY_TAIL),
   };
 }
